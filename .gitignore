@@ -1,0 +1,52 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs
+dist
+build
+.next
+out
+.turbo
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.idea
+.vscode
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage
+
+# Prisma
+prisma/generated
+
+# Terraform
+**/.terraform
+*.tfstate
+*.tfstate.backup
+*.tfvars
+!*.tfvars.example
+
+# Python
+__pycache__
+*.py[cod]
+.venv
+venv
+
+# Misc
+*.pem
