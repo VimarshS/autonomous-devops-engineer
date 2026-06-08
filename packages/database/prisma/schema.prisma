@@ -1,0 +1,357 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum ProjectStatus {
+  DRAFT
+  ANALYZING
+  ANALYZED
+  GENERATING
+  GENERATED
+  DEPLOYING
+  LIVE
+  FAILED
+  PAUSED
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  RETRYING
+  CANCELLED
+}
+
+enum ProgrammingLanguage {
+  TYPESCRIPT
+  JAVASCRIPT
+  PYTHON
+  GO
+  RUST
+  JAVA
+  RUBY
+  PHP
+  UNKNOWN
+}
+
+enum Framework {
+  NEXTJS
+  NESTJS
+  EXPRESS
+  FASTIFY
+  FASTAPI
+  DJANGO
+  FLASK
+  GIN
+  SPRING_BOOT
+  RAILS
+  UNKNOWN
+}
+
+enum PackageManager {
+  NPM
+  YARN
+  PNPM
+  BUN
+  PIP
+  POETRY
+  GO_MOD
+  CARGO
+  UNKNOWN
+}
+
+enum DeploymentTarget {
+  ECS
+  EKS
+  LAMBDA
+}
+
+enum ArtifactType {
+  DOCKERFILE
+  DOCKER_COMPOSE
+  TERRAFORM_MAIN
+  TERRAFORM_VARIABLES
+  TERRAFORM_OUTPUTS
+  GITHUB_ACTIONS_CI
+  GITHUB_ACTIONS_CD
+  HELM_CHART
+}
+
+enum SecuritySeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum ProjectEventType {
+  PROJECT_CREATED
+  ANALYSIS_STARTED
+  ANALYSIS_COMPLETED
+  ANALYSIS_FAILED
+  ARTIFACT_GENERATED
+  DEPLOYMENT_STARTED
+  DEPLOYMENT_SUCCEEDED
+  DEPLOYMENT_FAILED
+  SECURITY_SCAN_COMPLETED
+  PROJECT_PAUSED
+  PROJECT_DELETED
+}
+
+// ─────────────────────────────────────────────
+// USER
+// ─────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatarUrl String?
+  password  String?
+
+  githubId          String? @unique
+  githubAccessToken String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  projects Project[]
+  sessions Session[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([refreshToken])
+  @@map("sessions")
+}
+
+// ─────────────────────────────────────────────
+// PROJECT
+// ─────────────────────────────────────────────
+
+model Project {
+  id          String        @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  status      ProjectStatus @default(DRAFT)
+
+  repositoryUrl   String?
+  repositoryOwner String?
+  repositoryName  String?
+  defaultBranch   String?   @default("main")
+
+  deployedUrl String?
+  awsRegion   String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analysis     Analysis?
+  artifacts    Artifact[]
+  deployments  Deployment[]
+  securityScan SecurityScan?
+  jobs         Job[]
+  events       ProjectEvent[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("projects")
+}
+
+// ─────────────────────────────────────────────
+// ANALYSIS
+// ─────────────────────────────────────────────
+
+model Analysis {
+  id        String    @id @default(cuid())
+  projectId String    @unique
+  status    JobStatus @default(PENDING)
+
+  primaryLanguage ProgrammingLanguage @default(UNKNOWN)
+  framework       Framework           @default(UNKNOWN)
+  packageManager  PackageManager      @default(UNKNOWN)
+
+  databases  String[]
+  hasRedis   Boolean  @default(false)
+  ports      Int[]
+
+  buildCommand String?
+  startCommand String?
+  testCommand  String?
+
+  hasDockerfile    Boolean @default(false)
+  hasDockerCompose Boolean @default(false)
+  hasCiCdConfig    Boolean @default(false)
+
+  languageBreakdown Json?
+  detectedEnvVars   Json?
+  dependencySummary Json?
+
+  aiSummary            String?
+  deploymentComplexity String?
+  estimatedMonthlyCost Float?
+  errorMessage         String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("analyses")
+}
+
+// ─────────────────────────────────────────────
+// ARTIFACTS
+// ─────────────────────────────────────────────
+
+model Artifact {
+  id          String       @id @default(cuid())
+  projectId   String
+  type        ArtifactType
+  filename    String
+  content     String       @db.Text
+  version     Int          @default(1)
+  aiGenerated Boolean      @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, type, version])
+  @@index([projectId])
+  @@map("artifacts")
+}
+
+// ─────────────────────────────────────────────
+// DEPLOYMENT
+// ─────────────────────────────────────────────
+
+model Deployment {
+  id        String           @id @default(cuid())
+  projectId String
+  status    JobStatus        @default(PENDING)
+  target    DeploymentTarget @default(ECS)
+  region    String           @default("us-east-1")
+
+  deployedUrl    String?
+  ecsServiceArn  String?
+  ecsClusterArn  String?
+  containerImage String?
+
+  logs         String[]
+  errorMessage String?
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+  @@map("deployments")
+}
+
+// ─────────────────────────────────────────────
+// SECURITY SCAN
+// ─────────────────────────────────────────────
+
+model SecurityScan {
+  id        String    @id @default(cuid())
+  projectId String    @unique
+  status    JobStatus @default(PENDING)
+
+  score    Int?
+  findings Json?
+
+  criticalCount Int @default(0)
+  highCount     Int @default(0)
+  mediumCount   Int @default(0)
+  lowCount      Int @default(0)
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("security_scans")
+}
+
+// ─────────────────────────────────────────────
+// JOB TRACKING
+// ─────────────────────────────────────────────
+
+model Job {
+  id          String    @id @default(cuid())
+  projectId   String
+  bullmqJobId String?
+  queue       String
+  jobType     String
+  status      JobStatus @default(PENDING)
+  progress    Int       @default(0)
+
+  input        Json?
+  output       Json?
+  errorMessage String?
+  attempts     Int      @default(0)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+  @@index([queue, status])
+  @@map("jobs")
+}
+
+// ─────────────────────────────────────────────
+// PROJECT EVENTS (audit log)
+// ─────────────────────────────────────────────
+
+model ProjectEvent {
+  id        String           @id @default(cuid())
+  projectId String
+  eventType ProjectEventType
+  actorId   String?
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([createdAt])
+  @@map("project_events")
+}
