@@ -9,7 +9,6 @@ export class AuthMiddleware implements NestMiddleware {
 
   async use(req: Request, res: Response, next: NextFunction) {
     const auth = this.authService.getAuth();
-
     const fullPath = `/api/auth${req.url}`;
 
     const response = await auth.handler(

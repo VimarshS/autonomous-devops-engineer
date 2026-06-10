@@ -10,8 +10,12 @@ export function createAuthConfig(db: DatabaseService) {
     }),
 
     basePath: '/api/auth',
-
     baseURL: process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3001',
+
+    trustedOrigins: [
+      'http://localhost:3000',
+      'http://localhost:3001',
+    ],
 
     emailAndPassword: {
       enabled: true,
