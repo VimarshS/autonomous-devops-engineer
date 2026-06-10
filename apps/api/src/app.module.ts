@@ -6,12 +6,14 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AuthMiddleware } from './modules/auth/auth.middleware';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     HealthModule,
     AuthModule,
+    UsersModule,
   ],
   providers: [
     {
