@@ -8,7 +8,7 @@ export class UsersService {
   constructor(private readonly db: DatabaseService) {}
 
   async findById(id: string) {
-    const user = await this.db.user.findUnique({
+    const user = await this.db.appUser.findUnique({
       where: { id },
       select: {
         id: true,
@@ -28,7 +28,7 @@ export class UsersService {
   }
 
   async updateMe(id: string, dto: UpdateUserDto) {
-    return this.db.user.update({
+    return this.db.appUser.update({
       where: { id },
       data: {
         name: dto.name,

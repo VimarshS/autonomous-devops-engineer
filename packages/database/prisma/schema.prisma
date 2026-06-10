@@ -113,7 +113,7 @@ enum ProjectEventType {
 // USER
 // ─────────────────────────────────────────────
 
-model User {
+model AppUser {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String?
@@ -128,13 +128,13 @@ model User {
   deletedAt DateTime?
 
   projects Project[]
-  sessions Session[]
+  sessions AppSession[]
 
   @@index([email])
   @@map("users")
 }
 
-model Session {
+model AppSession {
   id           String   @id @default(cuid())
   userId       String
   refreshToken String   @unique
@@ -143,11 +143,11 @@ model Session {
   expiresAt    DateTime
   createdAt    DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([refreshToken])
-  @@map("sessions")
+  @@map("app_sessions")
 }
 
 // ─────────────────────────────────────────────
@@ -173,7 +173,7 @@ model Project {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         AppUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
   analysis     Analysis?
   artifacts    Artifact[]
   deployments  Deployment[]
