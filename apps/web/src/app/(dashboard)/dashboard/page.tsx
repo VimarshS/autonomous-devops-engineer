@@ -7,7 +7,7 @@ import { authClient, tokenStorage } from '../../../lib/auth-client';
 import { useAuth } from '../../../contexts/auth-context';
 
 export default function DashboardPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, refetch } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -17,10 +17,10 @@ export default function DashboardPage() {
   }, [user, loading, router]);
 
   async function handleSignOut() {
-    tokenStorage.remove();
-    await authClient.signOut();
-    router.push('/login');
-  }
+  tokenStorage.remove();
+  await authClient.signOut();
+  window.location.href = '/login';
+}
 
   if (loading) {
     return (

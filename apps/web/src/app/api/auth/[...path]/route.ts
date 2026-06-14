@@ -4,7 +4,6 @@ const API_URL = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
 
 async function handler(req: NextRequest) {
   const path = req.nextUrl.pathname.replace('/api/auth', '');
-  // Include /v1 version in the URL to match NestJS versioning
   const url = `${API_URL}/api/v1/auth${path}${req.nextUrl.search}`;
 
   const headers = new Headers();
@@ -25,11 +24,22 @@ async function handler(req: NextRequest) {
 
     const responseBody = await response.text();
 
-    // Pass ALL headers through including set-cookie
     const responseHeaders = new Headers();
     response.headers.forEach((value, key) => {
-      responseHeaders.set(key, value);
+      if (key.toLowerCase() === 'set-cookie') {
+        responseHeaders.append(key, value);
+      } else {
+        responseHeaders.set(key, value);
+      }
     });
+
+    // On sign-out, explicitly clear the cookie
+    if (path.includes('sign-out')) {
+      responseHeaders.append(
+        'Set-Cookie',
+        'better-auth.session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      );
+    }
 
     return new NextResponse(responseBody, {
       status: response.status,
