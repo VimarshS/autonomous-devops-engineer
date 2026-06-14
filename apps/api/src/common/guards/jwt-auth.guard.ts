@@ -19,6 +19,13 @@ export class JwtAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<Request>();
+
+    // Skip guard for all auth routes
+    if (request.path.startsWith('/api/auth')) {
+      return true;
+    }
+
     // Check if route is marked as public
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
@@ -29,7 +36,6 @@ export class JwtAuthGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<Request>();
     const token = this.extractTokenFromHeader(request);
 
     if (!token) {
@@ -42,7 +48,6 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid or expired session');
     }
 
-    // Attach user to request for @CurrentUser() decorator
     request['user'] = session.user;
 
     return true;

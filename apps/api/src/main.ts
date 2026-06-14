@@ -8,6 +8,10 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Enable trust proxy to use x-forwarded-* headers
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', true);
+
   const config = app.get(ConfigService);
   const port = config.get<number>('PORT', 3001);
   const nodeEnv = config.get<string>('NODE_ENV', 'development');
@@ -21,11 +25,11 @@ async function bootstrap() {
   });
 
   app.enableCors({
-    origin: nodeEnv === 'production'
-      ? config.get('FRONTEND_URL')
-      : true,
-    credentials: true,
-  });
+  origin: ['http://localhost:3000', 'http://localhost:3002'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'x-better-auth-token'],
+});
 
   app.useGlobalPipes(
     new ValidationPipe({

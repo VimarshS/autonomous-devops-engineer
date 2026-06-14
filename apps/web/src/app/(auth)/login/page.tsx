@@ -1,11 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { authClient } from '../../../lib/auth-client';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+
+import { authClient, tokenStorage } from '../../../lib/auth-client';
+import { useAuth } from '../../../contexts/auth-context';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { refetch } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -16,19 +19,32 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
-    const result = await authClient.signIn.email({
-      email,
-      password,
-      callbackURL: '/dashboard',
-    });
+    try {
+      const result = await authClient.signIn.email({
+        email,
+        password,
+        callbackURL: '/dashboard',
+      });
 
-    if (result.error) {
-      setError(result.error.message ?? 'Login failed');
+      if (result.error) {
+        const errorMsg = result.error.message ?? 'Login failed';
+        setError(errorMsg);
+        setLoading(false);
+        return;
+      }
+
+      if (result.data?.token) {
+        tokenStorage.set(result.data.token);
+      }
+
+      // Refetch session to update auth context
+      await refetch();
+      
+      router.push('/dashboard');
+    } catch (err) {
+      setError('An unexpected error occurred');
       setLoading(false);
-      return;
     }
-
-    router.push('/dashboard');
   }
 
   async function handleGitHubLogin() {

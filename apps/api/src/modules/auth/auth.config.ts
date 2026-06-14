@@ -9,8 +9,9 @@ export function createAuthConfig(db: DatabaseService) {
       provider: 'postgresql',
     }),
 
-    basePath: '/api/auth',
+    basePath: '/api/v1/auth',
     baseURL: process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3001',
+    secret: process.env['BETTER_AUTH_SECRET'],
 
     trustedOrigins: [
       'http://localhost:3000',
@@ -33,14 +34,12 @@ export function createAuthConfig(db: DatabaseService) {
       expiresIn: 60 * 60 * 24 * 7,
       updateAge: 60 * 60 * 24,
       cookieCache: {
-        enabled: true,
-        maxAge: 60 * 5,
+        enabled: false, // Disable cache to use standard session cookie
       },
     },
 
     advanced: {
       useSecureCookies: process.env['NODE_ENV'] === 'production',
-      cookiePrefix: 'ade',
     },
   });
 }

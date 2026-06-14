@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { authClient } from '../../../lib/auth-client';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+
+import { authClient, tokenStorage } from '../../../lib/auth-client';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -28,6 +29,10 @@ export default function RegisterPage() {
       setError(result.error.message ?? 'Registration failed');
       setLoading(false);
       return;
+    }
+
+    if (result.data?.token) {
+      tokenStorage.set(result.data.token);
     }
 
     router.push('/dashboard');
