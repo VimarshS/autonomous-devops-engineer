@@ -18,11 +18,11 @@ export class AuthService implements OnModuleInit {
   }
 
   // Verify a session token — used by the JWT guard
-  async verifySession(token: string) {
-    return this.auth.api.getSession({
-      headers: new Headers({
-        Authorization: `Bearer ${token}`,
-      }),
-    });
-  }
+ async verifySession(token: string) {
+  return this.auth.api.getSession({
+    headers: new Headers({
+      cookie: `better-auth.session_token=${token}`,
+    }),
+  });
+}
 }

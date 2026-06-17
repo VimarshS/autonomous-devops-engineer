@@ -15,6 +15,13 @@ export default function DashboardPage() {
       router.push('/login');
     }
   }, [user, loading, router]);
+  useEffect(() => {
+  if (user) {
+    fetch('/api/projects', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => console.log('PROJECTS:', JSON.stringify(d)));
+  }
+}, [user]);
 
   async function handleSignOut() {
   tokenStorage.remove();
