@@ -94,3 +94,22 @@ on the same origin as the frontend.
 3. Dashboard layout with sidebar
 4. Projects list and create pages
 5. WebSocket gateway for real-time updates
+
+### Session 3 — Phase 3 Project Management
+**Status:** In Progress
+
+#### What was done
+- Projects CRUD API (NestJS) — GET, POST, PATCH, DELETE
+- Projects list UI with sidebar layout
+- Create project modal
+- Fixed foreign key issue — projects now linked to better_auth_user table
+- Next.js proxy routes for authenticated API calls
+
+#### Technical Decision
+Projects link to Better Auth's `user` table (not our custom AppUser table)
+because Better Auth manages user creation. AppUser table reserved for
+future extended profile data.
+
+#### Next Tasks
+- Task 3.3: WebSocket gateway for real-time job updates
+- Task 3.4: Project detail page
