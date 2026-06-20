@@ -1,45 +1,83 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 
-import { authClient, tokenStorage } from '../../../lib/auth-client';
 import { useAuth } from '../../../contexts/auth-context';
+import { Sidebar } from '../../../components/layout/sidebar';
+import { ProjectCard } from '../../../components/projects/project-card';
+import { CreateProjectModal } from '../../../components/projects/create-project-modal';
+
+interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  repositoryUrl: string | null;
+  repositoryOwner: string | null;
+  repositoryName: string | null;
+  createdAt: string;
+}
 
 export default function DashboardPage() {
-  const { user, loading, refetch } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
-  useEffect(() => {
-  if (user) {
-    fetch('/api/projects', { credentials: 'include' })
-      .then(r => r.json())
-      .then(d => console.log('PROJECTS:', JSON.stringify(d)));
-  }
-}, [user]);
 
-  async function handleSignOut() {
-  tokenStorage.remove();
-  await authClient.signOut();
-  window.location.href = '/login';
-}
+  useEffect(() => {
+    if (user) {
+      fetchProjects();
+    }
+  }, [user]);
+
+  async function fetchProjects() {
+    try {
+      const res = await fetch('/api/projects', { credentials: 'include' });
+      const data = await res.json();
+      setProjects(Array.isArray(data) ? data : []);
+    } catch {
+      setProjects([]);
+    } finally {
+      setProjectsLoading(false);
+    }
+  }
+
+  async function handleCreateProject(dto: {
+    name: string;
+    description?: string;
+    repositoryUrl?: string;
+  }) {
+    const res = await fetch('/api/projects', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dto),
+    });
+
+    if (!res.ok) throw new Error('Failed to create project');
+
+    await fetchProjects();
+  }
 
   if (loading) {
     return (
       <div style={{
         minHeight: '100vh',
-        background: '#030712',
-        color: 'white',
+        background: '#020617',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        color: 'white',
       }}>
-        <p>Loading...</p>
+        Loading...
       </div>
     );
   }
@@ -47,57 +85,93 @@ export default function DashboardPage() {
   if (!user) return null;
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: '#030712',
-      color: 'white',
-      padding: '2rem',
-    }}>
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '2rem',
-        paddingBottom: '1rem',
-        borderBottom: '1px solid #1f2937',
-      }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-          Dashboard
-        </h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span style={{ color: '#9ca3af', fontSize: '0.875rem' }}>
-            {user.email}
-          </span>
-          <button
-            onClick={handleSignOut}
-            style={{
-              background: '#1f2937',
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#020617' }}>
+      <Sidebar />
+
+      <main style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
+        {/* Header */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '2rem',
+        }}>
+          <div>
+            <h2 style={{
               color: 'white',
-              border: '1px solid #374151',
+              fontSize: '1.25rem',
+              fontWeight: '600',
+            }}>
+              Projects
+            </h2>
+            <p style={{ color: '#475569', fontSize: '0.875rem', marginTop: '0.25rem' }}>
+              {projects.length} project{projects.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            style={{
+              padding: '0.625rem 1rem',
+              background: '#2563eb',
+              color: 'white',
+              border: 'none',
               borderRadius: '8px',
-              padding: '0.5rem 1rem',
               fontSize: '0.875rem',
+              fontWeight: '500',
               cursor: 'pointer',
             }}
           >
-            Sign out
+            + New project
           </button>
         </div>
-      </div>
 
-      <div style={{
-        background: '#111827',
-        border: '1px solid #1f2937',
-        borderRadius: '12px',
-        padding: '1.5rem',
-      }}>
-        <p style={{ color: '#9ca3af', fontSize: '0.875rem' }}>
-          Welcome back,
-        </p>
-        <p style={{ fontSize: '1.25rem', fontWeight: '600', marginTop: '0.25rem' }}>
-          {user.name ?? user.email}
-        </p>
-      </div>
+        {/* Projects grid */}
+        {projectsLoading ? (
+          <p style={{ color: '#475569' }}>Loading projects...</p>
+        ) : projects.length === 0 ? (
+          <div style={{
+            border: '1px dashed #1e293b',
+            borderRadius: '12px',
+            padding: '3rem',
+            textAlign: 'center',
+          }}>
+            <p style={{ color: '#475569', marginBottom: '1rem' }}>
+              No projects yet
+            </p>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              style={{
+                padding: '0.625rem 1rem',
+                background: '#1e293b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+              }}
+            >
+              Create your first project
+            </button>
+          </div>
+        ) : (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+            gap: '1rem',
+          }}>
+            {projects.map(project => (
+              <ProjectCard key={project.id} project={project} />
+            ))}
+          </div>
+        )}
+      </main>
+
+      {showCreateModal && (
+        <CreateProjectModal
+          onClose={() => setShowCreateModal(false)}
+          onCreate={handleCreateProject}
+        />
+      )}
     </div>
   );
 }

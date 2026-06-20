@@ -127,7 +127,6 @@ model AppUser {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  projects Project[]
   sessions AppSession[]
 
   @@index([email])
@@ -173,7 +172,7 @@ model Project {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  user         AppUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         user          @relation(fields: [userId], references: [id], onDelete: Cascade)
   analysis     Analysis?
   artifacts    Artifact[]
   deployments  Deployment[]
@@ -366,6 +365,7 @@ model user {
 
   sessions session[]
   accounts account[]
+  projects Project[]
 
   @@map("better_auth_user")
 }
@@ -415,3 +415,5 @@ model verification {
 
   @@map("better_auth_verification")
 }
+
+ 
