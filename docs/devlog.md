@@ -113,3 +113,25 @@ future extended profile data.
 #### Next Tasks
 - Task 3.3: WebSocket gateway for real-time job updates
 - Task 3.4: Project detail page
+
+### Session 3 — Phase 3 Project Management (Complete)
+**Status:** ✅ Complete
+
+#### What was done
+- Projects CRUD API (NestJS)
+- Projects dashboard with sidebar, list, create modal
+- WebSocket gateway for real-time events (Socket.io)
+- Project detail page with pipeline visualization
+- Fixed Next.js route conflicts (api routes vs page routes)
+- Fixed JSX parsing issues caused by special characters in style objects
+
+#### Key Lessons
+- Next.js App Router: route.ts and page.tsx cannot coexist in the same folder
+- Special unicode characters (arrows, emoji) can break JSX parsing in some editor paste operations — prefer plain text
+- Project ownership links to Better Auth's `user` table, not custom AppUser table
+
+#### Next Session Goals — Phase 4
+1. GitHub OAuth token storage (encrypted)
+2. GitHub API service — list repos, fetch file tree
+3. Repo connection UI
+4. Webhook receiver for push events
