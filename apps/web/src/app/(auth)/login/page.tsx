@@ -48,11 +48,11 @@ export default function LoginPage() {
   }
 
   async function handleGitHubLogin() {
-    await authClient.signIn.social({
-      provider: 'github',
-      callbackURL: '/dashboard',
-    });
-  }
+  await authClient.signIn.social({
+    provider: 'github',
+    callbackURL: `${window.location.origin}/dashboard`,
+  });
+}
 
   return (
     <div>

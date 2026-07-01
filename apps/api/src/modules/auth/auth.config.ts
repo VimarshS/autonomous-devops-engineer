@@ -24,11 +24,12 @@ export function createAuthConfig(db: DatabaseService) {
     },
 
     socialProviders: {
-      github: {
-        clientId: process.env['GITHUB_CLIENT_ID'] ?? '',
-        clientSecret: process.env['GITHUB_CLIENT_SECRET'] ?? '',
-      },
-    },
+  github: {
+    clientId: process.env['GITHUB_CLIENT_ID'] ?? '',
+    clientSecret: process.env['GITHUB_CLIENT_SECRET'] ?? '',
+    scope: ['read:user', 'user:email', 'repo'],
+  },
+},
 
     session: {
       expiresIn: 60 * 60 * 24 * 7,
