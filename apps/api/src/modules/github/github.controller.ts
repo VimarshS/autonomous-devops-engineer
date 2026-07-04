@@ -1,0 +1,44 @@
+import { Controller, Get, Param, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { GitHubService } from './github.service';
+
+@ApiTags('github')
+@ApiBearerAuth()
+@Controller('github')
+export class GitHubController {
+  constructor(private readonly githubService: GitHubService) {}
+
+  @Get('repos')
+  @ApiOperation({ summary: 'List user GitHub repositories' })
+  listRepos(@CurrentUser() user: Record<string, unknown>) {
+    return this.githubService.listRepositories(user['id'] as string);
+  }
+
+  @Get('repos/:owner/:repo')
+  @ApiOperation({ summary: 'Get a specific repository' })
+  getRepo(
+    @Param('owner') owner: string,
+    @Param('repo') repo: string,
+    @CurrentUser() user: Record<string, unknown>,
+  ) {
+    return this.githubService.getRepository(user['id'] as string, owner, repo);
+  }
+
+  @Get('repos/:owner/:repo/tree')
+  @ApiOperation({ summary: 'Get file tree for a repository' })
+  getFileTree(
+    @Param('owner') owner: string,
+    @Param('repo') repo: string,
+    @Query('branch') branch: string = 'main',
+    @CurrentUser() user: Record<string, unknown>,
+  ) {
+    return this.githubService.getFileTree(
+      user['id'] as string,
+      owner,
+      repo,
+      branch,
+    );
+  }
+}

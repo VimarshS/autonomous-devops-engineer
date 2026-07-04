@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { UsersModule } from './modules/users/users.module';
 import { GatewayModule } from './modules/gateway/gateway.module';
+import { GitHubModule } from './modules/github/github.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { GatewayModule } from './modules/gateway/gateway.module';
     UsersModule,
     ProjectsModule,
     GatewayModule,
+    GitHubModule,
   ],
   providers: [
     {
