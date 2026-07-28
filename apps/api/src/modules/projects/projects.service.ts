@@ -88,17 +88,21 @@ export class ProjectsService {
     return project;
   }
 
-  async update(id: string, userId: string, dto: UpdateProjectDto) {
-    await this.findOne(id, userId);
+ async update(id: string, userId: string, dto: UpdateProjectDto) {
+  await this.findOne(id, userId);
 
-    return this.db.project.update({
-      where: { id },
-      data: {
-        name: dto.name,
-        description: dto.description,
-      },
-    });
-  }
+  return this.db.project.update({
+    where: { id },
+    data: {
+      name: dto.name,
+      description: dto.description,
+      repositoryUrl: dto.repositoryUrl,
+      repositoryOwner: dto.repositoryOwner,
+      repositoryName: dto.repositoryName,
+      defaultBranch: dto.defaultBranch,
+    },
+  });
+}
 
   async remove(id: string, userId: string) {
     await this.findOne(id, userId);

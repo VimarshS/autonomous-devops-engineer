@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, IsUrl, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateProjectDto {
   @IsOptional()
@@ -11,4 +11,20 @@ export class UpdateProjectDto {
   @IsString()
   @MaxLength(500)
   description?: string;
+
+  @IsOptional()
+  @IsUrl()
+  repositoryUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  repositoryOwner?: string;
+
+  @IsOptional()
+  @IsString()
+  repositoryName?: string;
+
+  @IsOptional()
+  @IsString()
+  defaultBranch?: string;
 }
