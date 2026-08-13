@@ -41,4 +41,20 @@ export class GitHubController {
       branch,
     );
   }
+
+  @Get('repos/:owner/:repo/key-files')
+  @ApiOperation({ summary: 'Get key files for stack detection' })
+  getKeyFiles(
+    @Param('owner') owner: string,
+    @Param('repo') repo: string,
+    @Query('branch') branch: string = 'main',
+    @CurrentUser() user: Record<string, unknown>,
+  ) {
+    return this.githubService.getKeyFiles(
+      user['id'] as string,
+      owner,
+      repo,
+      branch,
+    );
+  }
 }

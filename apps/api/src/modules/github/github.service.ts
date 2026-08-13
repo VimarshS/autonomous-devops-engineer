@@ -137,5 +137,64 @@ export class GitHubService {
     }
 
     return file.content;
+    
   }
+  async getKeyFiles(userId: string, owner: string, repo: string, branch: string) {
+  const token = await this.getGitHubToken(userId);
+
+  const tree = await this.githubRequest<{
+    tree: Array<{ path: string; type: string; size?: number }>;
+  }>(
+    token,
+    `/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`,
+  );
+
+  const allFiles = tree.tree
+    .filter(item => item.type === 'blob')
+    .map(item => item.path);
+
+  // Key files that tell us about the tech stack
+  const keyFilePatterns = [
+    'package.json',
+    'package-lock.json',
+    'yarn.lock',
+    'pnpm-lock.yaml',
+    'requirements.txt',
+    'pyproject.toml',
+    'Pipfile',
+    'go.mod',
+    'go.sum',
+    'Cargo.toml',
+    'pom.xml',
+    'build.gradle',
+    'Gemfile',
+    'Dockerfile',
+    'docker-compose.yml',
+    'docker-compose.yaml',
+    '.dockerignore',
+    '.github/workflows',
+    'next.config.js',
+    'next.config.ts',
+    'next.config.mjs',
+    'vite.config.ts',
+    'vite.config.js',
+    'tsconfig.json',
+    'nest-cli.json',
+    'angular.json',
+    '.env.example',
+    '.env.sample',
+  ];
+
+  const keyFiles = allFiles.filter(file =>
+    keyFilePatterns.some(pattern =>
+      file === pattern || file.endsWith('/' + pattern)
+    )
+  );
+
+  return {
+    totalFiles: allFiles.length,
+    allFiles,
+    keyFiles,
+  };
+}
 }
