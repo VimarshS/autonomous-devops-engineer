@@ -135,3 +135,28 @@ future extended profile data.
 2. GitHub API service — list repos, fetch file tree
 3. Repo connection UI
 4. Webhook receiver for push events
+
+### Session 4 — Phase 4 GitHub Integration (Complete)
+**Status:** ✅ Complete
+
+#### What was done
+- GitHub OAuth scope updated to include `repo`
+- GitHub API service — list repos, get file tree, key files
+- Repo picker UI — connect GitHub repo to project
+- File tree extraction with key file detection
+- Webhook receiver for push events with signature verification
+
+#### Key Decisions
+- Better Auth stores GitHub token in `account` table automatically
+- Webhook signature verification uses HMAC-SHA256
+- Key files detection identifies tech stack from file patterns
+
+#### Next Session Goals — Phase 5
+1. Deterministic language/framework detector
+2. Package manager detection
+3. Port/service detection
+4. Environment variable extraction
+5. AI gap-fill layer
+6. BullMQ analysis queue + worker
+7. Analysis results storage
+8. Frontend: live analysis progress view
