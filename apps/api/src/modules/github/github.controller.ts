@@ -1,7 +1,19 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Query,
+  RawBodyRequest,
+  Req,
+  Body,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Request } from 'express';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { GitHubService } from './github.service';
 
 @ApiTags('github')
@@ -56,5 +68,17 @@ export class GitHubController {
       repo,
       branch,
     );
+  }
+
+  @Post('webhook')
+  @Public()
+  @ApiOperation({ summary: 'GitHub webhook receiver' })
+  async handleWebhook(
+    @Headers('x-github-event') event: string,
+    @Headers('x-hub-signature-256') signature: string,
+    @Req() req: RawBodyRequest<Request>,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.githubService.handleWebhook(event, signature, req.rawBody, body);
   }
 }

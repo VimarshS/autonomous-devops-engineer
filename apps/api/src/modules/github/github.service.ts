@@ -1,5 +1,4 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-
 import { DatabaseService } from '../../database/database.service';
 
 interface GitHubRepo {
@@ -104,7 +103,12 @@ export class GitHubService {
     };
   }
 
-  async getFileTree(userId: string, owner: string, repo: string, branch: string) {
+  async getFileTree(
+    userId: string,
+    owner: string,
+    repo: string,
+    branch: string,
+  ) {
     const token = await this.getGitHubToken(userId);
 
     const tree = await this.githubRequest<{
@@ -130,71 +134,109 @@ export class GitHubService {
     const file = await this.githubRequest<{
       content: string;
       encoding: string;
-    }>(token, `/repos/${owner}/${repo}/contents/${path}`);
+    }>(
+      token,
+      `/repos/${owner}/${repo}/contents/${path}`,
+    );
 
     if (file.encoding === 'base64') {
       return Buffer.from(file.content, 'base64').toString('utf-8');
     }
 
     return file.content;
-    
   }
-  async getKeyFiles(userId: string, owner: string, repo: string, branch: string) {
-  const token = await this.getGitHubToken(userId);
 
-  const tree = await this.githubRequest<{
-    tree: Array<{ path: string; type: string; size?: number }>;
-  }>(
-    token,
-    `/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`,
-  );
+  async getKeyFiles(
+    userId: string,
+    owner: string,
+    repo: string,
+    branch: string,
+  ) {
+    const token = await this.getGitHubToken(userId);
 
-  const allFiles = tree.tree
-    .filter(item => item.type === 'blob')
-    .map(item => item.path);
+    const tree = await this.githubRequest<{
+      tree: Array<{ path: string; type: string; size?: number }>;
+    }>(
+      token,
+      `/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`,
+    );
 
-  // Key files that tell us about the tech stack
-  const keyFilePatterns = [
-    'package.json',
-    'package-lock.json',
-    'yarn.lock',
-    'pnpm-lock.yaml',
-    'requirements.txt',
-    'pyproject.toml',
-    'Pipfile',
-    'go.mod',
-    'go.sum',
-    'Cargo.toml',
-    'pom.xml',
-    'build.gradle',
-    'Gemfile',
-    'Dockerfile',
-    'docker-compose.yml',
-    'docker-compose.yaml',
-    '.dockerignore',
-    '.github/workflows',
-    'next.config.js',
-    'next.config.ts',
-    'next.config.mjs',
-    'vite.config.ts',
-    'vite.config.js',
-    'tsconfig.json',
-    'nest-cli.json',
-    'angular.json',
-    '.env.example',
-    '.env.sample',
-  ];
+    const allFiles = tree.tree
+      .filter(item => item.type === 'blob')
+      .map(item => item.path);
 
-  const keyFiles = allFiles.filter(file =>
-    keyFilePatterns.some(pattern =>
-      file === pattern || file.endsWith('/' + pattern)
-    )
-  );
+    const keyFilePatterns = [
+      'package.json',
+      'package-lock.json',
+      'yarn.lock',
+      'pnpm-lock.yaml',
+      'requirements.txt',
+      'pyproject.toml',
+      'Pipfile',
+      'go.mod',
+      'go.sum',
+      'Cargo.toml',
+      'pom.xml',
+      'build.gradle',
+      'Gemfile',
+      'Dockerfile',
+      'docker-compose.yml',
+      'docker-compose.yaml',
+      '.dockerignore',
+      '.github/workflows',
+      'next.config.js',
+      'next.config.ts',
+      'next.config.mjs',
+      'vite.config.ts',
+      'vite.config.js',
+      'tsconfig.json',
+      'nest-cli.json',
+      'angular.json',
+      '.env.example',
+      '.env.sample',
+    ];
 
-  return {
-    totalFiles: allFiles.length,
-    allFiles,
-    keyFiles,
-  };
+    const keyFiles = allFiles.filter(file =>
+      keyFilePatterns.some(
+        pattern =>
+          file === pattern || file.endsWith('/' + pattern),
+      ),
+    );
+
+    return {
+      totalFiles: allFiles.length,
+      allFiles,
+      keyFiles,
+    };
+  }
+
+  // GitHub webhook handler
+ async handleWebhook(
+  event: string,
+  signature: string,
+  rawBody: Buffer | undefined,
+  body: Record<string, unknown>,
+) {
+  const secret = process.env['GITHUB_WEBHOOK_SECRET'];
+  
+  if (secret && rawBody && signature) {
+    const crypto = await import('crypto');
+    const hmac = crypto.createHmac('sha256', secret);
+    hmac.update(rawBody);
+    const expectedSignature = `sha256=${hmac.digest('hex')}`;
+    if (signature !== expectedSignature) {
+      throw new Error('Invalid webhook signature');
+    }
+  }
+
+  if (event === 'push') {
+    const repoFullName = (body['repository'] as Record<string, unknown>)?.['full_name'] as string;
+    if (repoFullName) {
+      const [owner, repo] = repoFullName.split('/');
+      console.log(`[Webhook] Push event received for ${owner}/${repo}`);
+    }
+  }
+
+  return { received: true, event };
 }
 }
