@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { AnalysisWorker } from './workers/analysis.worker';
 
 export enum QueueName {
   ANALYSIS = 'analysis',
@@ -45,5 +46,6 @@ export enum QueueName {
       { name: QueueName.SECURITY },
     ),
   ],
+  providers: [AnalysisWorker],
 })
 export class WorkerModule {}
