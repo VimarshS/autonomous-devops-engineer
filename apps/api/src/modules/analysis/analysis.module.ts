@@ -6,6 +6,7 @@ import { DatabaseModule } from '../../database/database.module';
 import { AnalysisController } from './analysis.controller';
 import { AnalysisService } from './analysis.service';
 import { ANALYSIS_QUEUE } from './analysis.service';
+import { AnalysisEngineService } from './analysis-engine.service';
 
 @Module({
   imports: [
@@ -13,7 +14,7 @@ import { ANALYSIS_QUEUE } from './analysis.service';
     BullModule.registerQueue({ name: ANALYSIS_QUEUE }),
   ],
   controllers: [AnalysisController],
-  providers: [AnalysisService],
-  exports: [AnalysisService],
+  providers: [AnalysisService, AnalysisEngineService],
+  exports: [AnalysisService, AnalysisEngineService],
 })
 export class AnalysisModule {}
