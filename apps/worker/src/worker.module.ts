@@ -1,6 +1,8 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { z } from 'zod';
+
 import { AnalysisWorker } from './workers/analysis.worker';
 
 export enum QueueName {
@@ -12,10 +14,26 @@ export enum QueueName {
   SECURITY = 'security',
 }
 
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  DATABASE_URL: z.string().url(),
+  REDIS_HOST: z.string().default('localhost'),
+  REDIS_PORT: z.coerce.number().default(6379),
+  REDIS_PASSWORD: z.string().optional(),
+  GITHUB_TOKEN_ENCRYPTION_KEY: z.string().optional(),
+});
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      validate: (config: Record<string, unknown>) => {
+        const result = envSchema.safeParse(config);
+        if (!result.success) {
+          throw new Error(`Worker env validation failed: ${result.error.message}`);
+        }
+        return result.data;
+      },
     }),
 
     BullModule.forRootAsync({
@@ -26,10 +44,7 @@ export enum QueueName {
         },
         defaultJobOptions: {
           attempts: 3,
-          backoff: {
-            type: 'exponential',
-            delay: 2000,
-          },
+          backoff: { type: 'exponential', delay: 2000 },
           removeOnComplete: { count: 100 },
           removeOnFail: { count: 200 },
         },
