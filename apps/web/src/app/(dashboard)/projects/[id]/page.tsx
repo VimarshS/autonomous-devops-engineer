@@ -20,6 +20,18 @@ interface Project {
   updatedAt: string;
 }
 
+interface Analysis {
+  primaryLanguage: string;
+  framework: string;
+  packageManager: string;
+  databases: string[];
+  hasDockerfile: boolean;
+  hasDockerCompose: boolean;
+  hasCiCdConfig: boolean;
+  status: string;
+  completedAt: string | null;
+}
+
 const statusColors: Record<string, string> = {
   DRAFT: '#475569',
   ANALYZING: '#2563eb',
@@ -36,15 +48,20 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
   const { user, loading } = useAuth();
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [projectLoading, setProjectLoading] = useState(true);
   const [showRepoPicker, setShowRepoPicker] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user) fetchProject();
+    if (user) {
+      fetchProject();
+      fetchAnalysis();
+    }
   }, [user, params.id]);
 
   async function fetchProject() {
@@ -56,6 +73,44 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
       router.push('/dashboard');
     } finally {
       setProjectLoading(false);
+    }
+  }
+
+  async function fetchAnalysis() {
+    try {
+      const res = await fetch(`/api/analysis/${params.id}`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data) setAnalysis(data);
+      }
+    } catch {
+      // Analysis not available yet
+    }
+  }
+
+  async function handleTriggerAnalysis() {
+    if (!project?.repositoryUrl) return;
+    setAnalyzing(true);
+    try {
+      await fetch('/api/analysis/trigger', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: params.id }),
+      });
+      // Poll for results
+      const interval = setInterval(async () => {
+        await fetchProject();
+        await fetchAnalysis();
+        const res = await fetch(`/api/projects/${params.id}`, { credentials: 'include' });
+        const p = await res.json() as Project;
+        if (p.status === 'ANALYZED' || p.status === 'FAILED') {
+          clearInterval(interval);
+          setAnalyzing(false);
+        }
+      }, 3000);
+    } catch {
+      setAnalyzing(false);
     }
   }
 
@@ -86,6 +141,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
     <div style={{ display: 'flex', minHeight: '100vh', background: '#020617' }}>
       <Sidebar />
       <main style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
+
         <div style={{ marginBottom: '2rem' }}>
           <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: '0.875rem', marginBottom: '1rem', padding: 0 }}>
             Back to projects
@@ -99,6 +155,16 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
               <span style={{ background: statusColors[project.status] ?? '#475569', color: 'white', fontSize: '0.75rem', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontWeight: '500' }}>
                 {project.status}
               </span>
+              {project.repositoryUrl && project.status === 'DRAFT' && (
+                <button onClick={handleTriggerAnalysis} disabled={analyzing} style={{ padding: '0.5rem 1rem', background: analyzing ? '#334155' : '#7c3aed', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.875rem', cursor: analyzing ? 'not-allowed' : 'pointer' }}>
+                  {analyzing ? 'Analyzing...' : 'Analyze'}
+                </button>
+              )}
+              {project.repositoryUrl && project.status === 'ANALYZED' && (
+                <button onClick={handleTriggerAnalysis} disabled={analyzing} style={{ padding: '0.5rem 1rem', background: '#1e293b', color: '#94a3b8', border: '1px solid #334155', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer' }}>
+                  Re-analyze
+                </button>
+              )}
               <button onClick={handleDelete} style={{ padding: '0.5rem 1rem', background: 'transparent', color: '#dc2626', border: '1px solid #dc2626', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer' }}>
                 Delete
               </button>
@@ -135,6 +201,52 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
           </div>
         </div>
 
+        {analysis && (
+          <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
+            <h2 style={{ color: 'white', fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>Analysis Results</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
+              <div>
+                <p style={{ color: '#475569', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Language</p>
+                <p style={{ color: 'white', fontSize: '0.875rem', fontWeight: '500' }}>{analysis.primaryLanguage}</p>
+              </div>
+              <div>
+                <p style={{ color: '#475569', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Framework</p>
+                <p style={{ color: 'white', fontSize: '0.875rem', fontWeight: '500' }}>{analysis.framework}</p>
+              </div>
+              <div>
+                <p style={{ color: '#475569', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Package Manager</p>
+                <p style={{ color: 'white', fontSize: '0.875rem', fontWeight: '500' }}>{analysis.packageManager}</p>
+              </div>
+              <div>
+                <p style={{ color: '#475569', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Dockerfile</p>
+                <p style={{ color: analysis.hasDockerfile ? '#16a34a' : '#475569', fontSize: '0.875rem', fontWeight: '500' }}>
+                  {analysis.hasDockerfile ? 'Yes' : 'No'}
+                </p>
+              </div>
+              <div>
+                <p style={{ color: '#475569', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Docker Compose</p>
+                <p style={{ color: analysis.hasDockerCompose ? '#16a34a' : '#475569', fontSize: '0.875rem', fontWeight: '500' }}>
+                  {analysis.hasDockerCompose ? 'Yes' : 'No'}
+                </p>
+              </div>
+              <div>
+                <p style={{ color: '#475569', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>CI/CD</p>
+                <p style={{ color: analysis.hasCiCdConfig ? '#16a34a' : '#475569', fontSize: '0.875rem', fontWeight: '500' }}>
+                  {analysis.hasCiCdConfig ? 'Yes' : 'No'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {analyzing && (
+          <div style={{ background: '#0f172a', border: '1px solid #2563eb', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
+            <p style={{ color: '#60a5fa', fontSize: '0.875rem' }}>
+              Analyzing repository... This may take a moment.
+            </p>
+          </div>
+        )}
+
         <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '1.5rem' }}>
           <h2 style={{ color: 'white', fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>Pipeline</h2>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -148,6 +260,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
             ))}
           </div>
         </div>
+
       </main>
 
       {showRepoPicker && (
