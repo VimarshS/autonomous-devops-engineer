@@ -12,6 +12,7 @@ import { UsersModule } from './modules/users/users.module';
 import { GatewayModule } from './modules/gateway/gateway.module';
 import { GitHubModule } from './modules/github/github.module';
 import { AnalysisModule } from './modules/analysis/analysis.module';
+import { DockerModule } from './modules/docker/docker.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { AnalysisModule } from './modules/analysis/analysis.module';
     GatewayModule,
     GitHubModule,
     AnalysisModule,
+    DockerModule,
   ],
 
   providers: [

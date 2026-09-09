@@ -202,42 +202,33 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         </div>
 
         {analysis && (
-          <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
-            <h2 style={{ color: 'white', fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>Analysis Results</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
-              <div>
-                <p style={{ color: '#475569', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Language</p>
-                <p style={{ color: 'white', fontSize: '0.875rem', fontWeight: '500' }}>{analysis.primaryLanguage}</p>
-              </div>
-              <div>
-                <p style={{ color: '#475569', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Framework</p>
-                <p style={{ color: 'white', fontSize: '0.875rem', fontWeight: '500' }}>{analysis.framework}</p>
-              </div>
-              <div>
-                <p style={{ color: '#475569', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Package Manager</p>
-                <p style={{ color: 'white', fontSize: '0.875rem', fontWeight: '500' }}>{analysis.packageManager}</p>
-              </div>
-              <div>
-                <p style={{ color: '#475569', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Dockerfile</p>
-                <p style={{ color: analysis.hasDockerfile ? '#16a34a' : '#475569', fontSize: '0.875rem', fontWeight: '500' }}>
-                  {analysis.hasDockerfile ? 'Yes' : 'No'}
-                </p>
-              </div>
-              <div>
-                <p style={{ color: '#475569', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Docker Compose</p>
-                <p style={{ color: analysis.hasDockerCompose ? '#16a34a' : '#475569', fontSize: '0.875rem', fontWeight: '500' }}>
-                  {analysis.hasDockerCompose ? 'Yes' : 'No'}
-                </p>
-              </div>
-              <div>
-                <p style={{ color: '#475569', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>CI/CD</p>
-                <p style={{ color: analysis.hasCiCdConfig ? '#16a34a' : '#475569', fontSize: '0.875rem', fontWeight: '500' }}>
-                  {analysis.hasCiCdConfig ? 'Yes' : 'No'}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+  <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
+    <h2 style={{ color: 'white', fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>Analysis Results</h2>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
+      {/* ... existing result cards ... */}
+    </div>
+
+    {/* ADD THIS BUTTON HERE */}
+    {project.status === 'ANALYZED' && (
+      <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #1e293b' }}>
+        <button
+          onClick={async () => {
+            const res = await fetch(`/api/docker/${params.id}/generate`, {
+              method: 'POST',
+              credentials: 'include',
+            });
+            const data = await res.json();
+            console.log('Generated:', data);
+            await fetchProject();
+          }}
+          style={{ padding: '0.625rem 1rem', background: '#059669', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer' }}
+        >
+          Generate Dockerfile
+        </button>
+      </div>
+    )}
+  </div>
+)}
 
         {analyzing && (
           <div style={{ background: '#0f172a', border: '1px solid #2563eb', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
