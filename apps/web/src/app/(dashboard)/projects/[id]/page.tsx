@@ -52,6 +52,17 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
   const [projectLoading, setProjectLoading] = useState(true);
   const [showRepoPicker, setShowRepoPicker] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [artifacts, setArtifacts] = useState<
+  Array<{
+    id: string;
+    type: string;
+    filename: string;
+    content: string;
+    version: number;
+  }>
+>([]);
+
+const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -61,6 +72,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
     if (user) {
       fetchProject();
       fetchAnalysis();
+      fetchArtifacts();
     }
   }, [user, params.id]);
 
@@ -87,6 +99,20 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
       // Analysis not available yet
     }
   }
+
+  async function fetchArtifacts() {
+  try {
+    const res = await fetch(`/api/artifacts/${params.id}`, {
+      credentials: 'include',
+    });
+
+    if (res.ok) {
+      setArtifacts(await res.json());
+    }
+  } catch {
+    // Ignore
+  }
+}
 
   async function handleTriggerAnalysis() {
     if (!project?.repositoryUrl) return;
@@ -209,24 +235,129 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
     </div>
 
     {/* ADD THIS BUTTON HERE */}
-    {project.status === 'ANALYZED' && (
-      <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #1e293b' }}>
-        <button
-          onClick={async () => {
-            const res = await fetch(`/api/docker/${params.id}/generate`, {
-              method: 'POST',
-              credentials: 'include',
-            });
-            const data = await res.json();
-            console.log('Generated:', data);
-            await fetchProject();
-          }}
-          style={{ padding: '0.625rem 1rem', background: '#059669', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer' }}
-        >
-          Generate Dockerfile
-        </button>
-      </div>
-    )}
+    {project.status === 'ANALYZED' || project.status === 'GENERATED' ? (
+  <div
+    style={{
+      marginTop: '1.5rem',
+      paddingTop: '1rem',
+      borderTop: '1px solid #1e293b',
+      display: 'flex',
+      gap: '0.75rem',
+      flexWrap: 'wrap',
+    }}
+  >
+    {/* Docker */}
+    <button
+      onClick={async () => {
+        try {
+          const res = await fetch(`/api/docker/${params.id}/generate`, {
+            method: 'POST',
+            credentials: 'include',
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            console.error('Docker generation failed:', data);
+            alert('Docker generation failed');
+            return;
+          }
+
+          console.log('Docker generated:', data);
+          await fetchProject();
+        } catch (error) {
+          console.error('Docker generation error:', error);
+          alert('Docker generation failed');
+        }
+      }}
+      style={{
+        padding: '0.625rem 1rem',
+        background: '#059669',
+        color: 'white',
+        border: 'none',
+        borderRadius: '8px',
+        fontSize: '0.875rem',
+        cursor: 'pointer',
+      }}
+    >
+      Generate Dockerfile
+    </button>
+
+    {/* Terraform */}
+    <button
+      onClick={async () => {
+        try {
+          const res = await fetch(`/api/terraform/${params.id}/generate`, {
+            method: 'POST',
+            credentials: 'include',
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            console.error('Terraform generation failed:', data);
+            alert('Terraform generation failed');
+            return;
+          }
+
+          console.log('Terraform generated:', data);
+          await fetchProject();
+        } catch (error) {
+          console.error('Terraform generation error:', error);
+          alert('Terraform generation failed');
+        }
+      }}
+      style={{
+        padding: '0.625rem 1rem',
+        background: '#7c3aed',
+        color: 'white',
+        border: 'none',
+        borderRadius: '8px',
+        fontSize: '0.875rem',
+        cursor: 'pointer',
+      }}
+    >
+      Generate Terraform
+    </button>
+
+    {/* CI/CD */}
+    <button
+      onClick={async () => {
+        try {
+          const res = await fetch(`/api/cicd/${params.id}/generate`, {
+            method: 'POST',
+            credentials: 'include',
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            console.error('CI/CD generation failed:', data);
+            alert('CI/CD generation failed');
+            return;
+          }
+
+          console.log('CI/CD generated:', data);
+          await fetchProject();
+        } catch (error) {
+          console.error('CI/CD generation error:', error);
+          alert('CI/CD generation failed');
+        }
+      }}
+      style={{
+        padding: '0.625rem 1rem',
+        background: '#d97706',
+        color: 'white',
+        border: 'none',
+        borderRadius: '8px',
+        fontSize: '0.875rem',
+        cursor: 'pointer',
+      }}
+    >
+      Generate CI/CD
+    </button>
+  </div>
+) : null}
   </div>
 )}
 
@@ -251,6 +382,95 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
             ))}
           </div>
         </div>
+        {artifacts.length > 0 && (
+  <div
+    style={{
+      background: '#0f172a',
+      border: '1px solid #1e293b',
+      borderRadius: '12px',
+      padding: '1.5rem',
+      marginTop: '1.5rem',
+    }}
+  >
+    <h2
+      style={{
+        color: 'white',
+        fontSize: '1rem',
+        fontWeight: '600',
+        marginBottom: '1rem',
+      }}
+    >
+      Generated Files
+    </h2>
+
+    <div
+      style={{
+        display: 'flex',
+        gap: '0.5rem',
+        flexWrap: 'wrap',
+        marginBottom: '1rem',
+      }}
+    >
+      {artifacts.map((a) => (
+        <button
+          key={a.id}
+          onClick={() =>
+            setSelectedArtifact(
+              selectedArtifact === a.id ? null : a.id
+            )
+          }
+          style={{
+            padding: '0.375rem 0.75rem',
+            background:
+              selectedArtifact === a.id
+                ? '#1e3a5f'
+                : '#1e293b',
+            color:
+              selectedArtifact === a.id
+                ? '#60a5fa'
+                : '#94a3b8',
+            border: `1px solid ${
+              selectedArtifact === a.id
+                ? '#2563eb'
+                : '#334155'
+            }`,
+            borderRadius: '6px',
+            fontSize: '0.75rem',
+            cursor: 'pointer',
+            fontFamily: 'monospace',
+          }}
+        >
+          {a.filename}
+        </button>
+      ))}
+    </div>
+
+    {selectedArtifact &&
+      (() => {
+        const artifact = artifacts.find(
+          (a) => a.id === selectedArtifact
+        );
+
+        return artifact ? (
+          <pre
+            style={{
+              background: '#020617',
+              border: '1px solid #1e293b',
+              borderRadius: '8px',
+              padding: '1rem',
+              color: '#e2e8f0',
+              fontSize: '0.75rem',
+              overflow: 'auto',
+              maxHeight: '400px',
+              margin: 0,
+            }}
+          >
+            {artifact.content}
+          </pre>
+        ) : null;
+      })()}
+  </div>
+)}
 
       </main>
 

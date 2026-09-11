@@ -13,6 +13,9 @@ import { GatewayModule } from './modules/gateway/gateway.module';
 import { GitHubModule } from './modules/github/github.module';
 import { AnalysisModule } from './modules/analysis/analysis.module';
 import { DockerModule } from './modules/docker/docker.module';
+import { TerraformModule } from './modules/terraform/terraform.module';
+import { CiCdModule } from './modules/cicd/cicd.module';
+import { ArtifactsModule } from './modules/artifacts/artifacts.module'
 
 @Module({
   imports: [
@@ -50,6 +53,9 @@ import { DockerModule } from './modules/docker/docker.module';
     GitHubModule,
     AnalysisModule,
     DockerModule,
+    TerraformModule,
+    CiCdModule,
+    ArtifactsModule
   ],
 
   providers: [
