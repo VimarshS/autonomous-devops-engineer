@@ -16,6 +16,7 @@ import { DockerModule } from './modules/docker/docker.module';
 import { TerraformModule } from './modules/terraform/terraform.module';
 import { CiCdModule } from './modules/cicd/cicd.module';
 import { ArtifactsModule } from './modules/artifacts/artifacts.module'
+import { SecurityModule } from './modules/security/security.module';
 
 @Module({
   imports: [
@@ -55,7 +56,8 @@ import { ArtifactsModule } from './modules/artifacts/artifacts.module'
     DockerModule,
     TerraformModule,
     CiCdModule,
-    ArtifactsModule
+    ArtifactsModule,
+    SecurityModule,
   ],
 
   providers: [

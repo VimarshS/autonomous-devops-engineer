@@ -29,7 +29,29 @@ interface Analysis {
   hasDockerCompose: boolean;
   hasCiCdConfig: boolean;
   status: string;
-  completedAt: string | null;
+}
+
+interface Artifact {
+  id: string;
+  type: string;
+  filename: string;
+  content: string;
+  version: number;
+}
+
+interface SecurityScan {
+  score: number;
+  criticalCount: number;
+  highCount: number;
+  mediumCount: number;
+  lowCount: number;
+  findings: Array<{
+    title: string;
+    severity: string;
+    description: string;
+    recommendation: string;
+    file: string | null;
+  }>;
 }
 
 const statusColors: Record<string, string> = {
@@ -49,20 +71,12 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [securityScan, setSecurityScan] = useState<SecurityScan | null>(null);
   const [projectLoading, setProjectLoading] = useState(true);
   const [showRepoPicker, setShowRepoPicker] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [artifacts, setArtifacts] = useState<
-  Array<{
-    id: string;
-    type: string;
-    filename: string;
-    content: string;
-    version: number;
-  }>
->([]);
-
-const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
+  const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -73,6 +87,7 @@ const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
       fetchProject();
       fetchAnalysis();
       fetchArtifacts();
+      fetchSecurityScan();
     }
   }, [user, params.id]);
 
@@ -91,40 +106,33 @@ const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
   async function fetchAnalysis() {
     try {
       const res = await fetch(`/api/analysis/${params.id}`, { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        if (data) setAnalysis(data);
-      }
-    } catch {
-      // Analysis not available yet
-    }
+      if (res.ok) { const d = await res.json(); if (d) setAnalysis(d); }
+    } catch { /* not available yet */ }
   }
 
   async function fetchArtifacts() {
-  try {
-    const res = await fetch(`/api/artifacts/${params.id}`, {
-      credentials: 'include',
-    });
-
-    if (res.ok) {
-      setArtifacts(await res.json());
-    }
-  } catch {
-    // Ignore
+    try {
+      const res = await fetch(`/api/artifacts/${params.id}`, { credentials: 'include' });
+      if (res.ok) { const d = await res.json(); if (Array.isArray(d)) setArtifacts(d); }
+    } catch { /* not available yet */ }
   }
-}
+
+  async function fetchSecurityScan() {
+    try {
+      const res = await fetch(`/api/security/${params.id}`, { credentials: 'include' });
+      if (res.ok) { const d = await res.json(); if (d) setSecurityScan(d); }
+    } catch { /* not available yet */ }
+  }
 
   async function handleTriggerAnalysis() {
     if (!project?.repositoryUrl) return;
     setAnalyzing(true);
     try {
       await fetch('/api/analysis/trigger', {
-        method: 'POST',
-        credentials: 'include',
+        method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId: params.id }),
       });
-      // Poll for results
       const interval = setInterval(async () => {
         await fetchProject();
         await fetchAnalysis();
@@ -135,16 +143,13 @@ const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
           setAnalyzing(false);
         }
       }, 3000);
-    } catch {
-      setAnalyzing(false);
-    }
+    } catch { setAnalyzing(false); }
   }
 
   async function handleConnectRepo(repo: { fullName: string; url: string; defaultBranch: string }) {
     const [owner, name] = repo.fullName.split('/');
     await fetch(`/api/projects/${params.id}`, {
-      method: 'PATCH',
-      credentials: 'include',
+      method: 'PATCH', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ repositoryUrl: repo.url, repositoryOwner: owner, repositoryName: name, defaultBranch: repo.defaultBranch }),
     });
@@ -157,11 +162,29 @@ const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
     router.push('/dashboard');
   }
 
+  async function handleGenerate(type: string) {
+    const endpoints: Record<string, string> = {
+      docker: `/api/docker/${params.id}/generate`,
+      terraform: `/api/terraform/${params.id}/generate`,
+      cicd: `/api/cicd/${params.id}/generate`,
+    };
+    await fetch(endpoints[type] ?? '', { method: 'POST', credentials: 'include' });
+    await fetchArtifacts();
+    await fetchProject();
+  }
+
+  async function handleSecurityScan() {
+    await fetch(`/api/security/${params.id}/scan`, { method: 'POST', credentials: 'include' });
+    await fetchSecurityScan();
+  }
+
   if (loading || projectLoading) {
     return <div style={{ minHeight: '100vh', background: '#020617', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>Loading...</div>;
   }
 
   if (!project) return null;
+
+  const canGenerate = project.status === 'ANALYZED' || project.status === 'GENERATED';
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#020617' }}>
@@ -172,23 +195,18 @@ const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
           <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: '0.875rem', marginBottom: '1rem', padding: 0 }}>
             Back to projects
           </button>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
               <h1 style={{ color: 'white', fontSize: '1.5rem', fontWeight: '700' }}>{project.name}</h1>
               {project.description && <p style={{ color: '#64748b', marginTop: '0.25rem' }}>{project.description}</p>}
             </div>
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ background: statusColors[project.status] ?? '#475569', color: 'white', fontSize: '0.75rem', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontWeight: '500' }}>
                 {project.status}
               </span>
-              {project.repositoryUrl && project.status === 'DRAFT' && (
+              {project.repositoryUrl && (
                 <button onClick={handleTriggerAnalysis} disabled={analyzing} style={{ padding: '0.5rem 1rem', background: analyzing ? '#334155' : '#7c3aed', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.875rem', cursor: analyzing ? 'not-allowed' : 'pointer' }}>
-                  {analyzing ? 'Analyzing...' : 'Analyze'}
-                </button>
-              )}
-              {project.repositoryUrl && project.status === 'ANALYZED' && (
-                <button onClick={handleTriggerAnalysis} disabled={analyzing} style={{ padding: '0.5rem 1rem', background: '#1e293b', color: '#94a3b8', border: '1px solid #334155', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer' }}>
-                  Re-analyze
+                  {analyzing ? 'Analyzing...' : project.status === 'DRAFT' ? 'Analyze' : 'Re-analyze'}
                 </button>
               )}
               <button onClick={handleDelete} style={{ padding: '0.5rem 1rem', background: 'transparent', color: '#dc2626', border: '1px solid #dc2626', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer' }}>
@@ -211,7 +229,6 @@ const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
               </button>
             )}
           </div>
-
           <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '1.25rem' }}>
             <p style={{ color: '#475569', fontSize: '0.75rem', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Deployed URL</p>
             {project.deployedUrl ? (
@@ -220,156 +237,59 @@ const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
               <p style={{ color: '#334155', fontSize: '0.875rem' }}>Not deployed yet</p>
             )}
           </div>
-
           <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '1.25rem' }}>
             <p style={{ color: '#475569', fontSize: '0.75rem', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Created</p>
             <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>{new Date(project.createdAt).toLocaleDateString()}</p>
           </div>
         </div>
 
-        {analysis && (
-  <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
-    <h2 style={{ color: 'white', fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>Analysis Results</h2>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
-      {/* ... existing result cards ... */}
-    </div>
-
-    {/* ADD THIS BUTTON HERE */}
-    {project.status === 'ANALYZED' || project.status === 'GENERATED' ? (
-  <div
-    style={{
-      marginTop: '1.5rem',
-      paddingTop: '1rem',
-      borderTop: '1px solid #1e293b',
-      display: 'flex',
-      gap: '0.75rem',
-      flexWrap: 'wrap',
-    }}
-  >
-    {/* Docker */}
-    <button
-      onClick={async () => {
-        try {
-          const res = await fetch(`/api/docker/${params.id}/generate`, {
-            method: 'POST',
-            credentials: 'include',
-          });
-
-          const data = await res.json();
-
-          if (!res.ok) {
-            console.error('Docker generation failed:', data);
-            alert('Docker generation failed');
-            return;
-          }
-
-          console.log('Docker generated:', data);
-          await fetchProject();
-        } catch (error) {
-          console.error('Docker generation error:', error);
-          alert('Docker generation failed');
-        }
-      }}
-      style={{
-        padding: '0.625rem 1rem',
-        background: '#059669',
-        color: 'white',
-        border: 'none',
-        borderRadius: '8px',
-        fontSize: '0.875rem',
-        cursor: 'pointer',
-      }}
-    >
-      Generate Dockerfile
-    </button>
-
-    {/* Terraform */}
-    <button
-      onClick={async () => {
-        try {
-          const res = await fetch(`/api/terraform/${params.id}/generate`, {
-            method: 'POST',
-            credentials: 'include',
-          });
-
-          const data = await res.json();
-
-          if (!res.ok) {
-            console.error('Terraform generation failed:', data);
-            alert('Terraform generation failed');
-            return;
-          }
-
-          console.log('Terraform generated:', data);
-          await fetchProject();
-        } catch (error) {
-          console.error('Terraform generation error:', error);
-          alert('Terraform generation failed');
-        }
-      }}
-      style={{
-        padding: '0.625rem 1rem',
-        background: '#7c3aed',
-        color: 'white',
-        border: 'none',
-        borderRadius: '8px',
-        fontSize: '0.875rem',
-        cursor: 'pointer',
-      }}
-    >
-      Generate Terraform
-    </button>
-
-    {/* CI/CD */}
-    <button
-      onClick={async () => {
-        try {
-          const res = await fetch(`/api/cicd/${params.id}/generate`, {
-            method: 'POST',
-            credentials: 'include',
-          });
-
-          const data = await res.json();
-
-          if (!res.ok) {
-            console.error('CI/CD generation failed:', data);
-            alert('CI/CD generation failed');
-            return;
-          }
-
-          console.log('CI/CD generated:', data);
-          await fetchProject();
-        } catch (error) {
-          console.error('CI/CD generation error:', error);
-          alert('CI/CD generation failed');
-        }
-      }}
-      style={{
-        padding: '0.625rem 1rem',
-        background: '#d97706',
-        color: 'white',
-        border: 'none',
-        borderRadius: '8px',
-        fontSize: '0.875rem',
-        cursor: 'pointer',
-      }}
-    >
-      Generate CI/CD
-    </button>
-  </div>
-) : null}
-  </div>
-)}
-
         {analyzing && (
           <div style={{ background: '#0f172a', border: '1px solid #2563eb', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
-            <p style={{ color: '#60a5fa', fontSize: '0.875rem' }}>
-              Analyzing repository... This may take a moment.
-            </p>
+            <p style={{ color: '#60a5fa', fontSize: '0.875rem' }}>Analyzing repository... This may take a moment.</p>
           </div>
         )}
 
-        <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '1.5rem' }}>
+        {analysis && (
+          <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
+            <h2 style={{ color: 'white', fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>Analysis Results</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+              {[
+                { label: 'Language', value: analysis.primaryLanguage },
+                { label: 'Framework', value: analysis.framework },
+                { label: 'Package Manager', value: analysis.packageManager },
+                { label: 'Dockerfile', value: analysis.hasDockerfile ? 'Yes' : 'No' },
+                { label: 'Docker Compose', value: analysis.hasDockerCompose ? 'Yes' : 'No' },
+                { label: 'CI/CD Config', value: analysis.hasCiCdConfig ? 'Yes' : 'No' },
+              ].map(item => (
+                <div key={item.label}>
+                  <p style={{ color: '#475569', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>{item.label}</p>
+                  <p style={{ color: 'white', fontSize: '0.875rem', fontWeight: '500' }}>{item.value}</p>
+                </div>
+              ))}
+            </div>
+            {canGenerate && (
+              <div style={{ borderTop: '1px solid #1e293b', paddingTop: '1rem' }}>
+                <p style={{ color: '#475569', fontSize: '0.75rem', marginBottom: '0.75rem' }}>GENERATE</p>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <button onClick={() => handleGenerate('docker')} style={{ padding: '0.5rem 1rem', background: '#059669', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer' }}>
+                    Dockerfile
+                  </button>
+                  <button onClick={() => handleGenerate('terraform')} style={{ padding: '0.5rem 1rem', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer' }}>
+                    Terraform
+                  </button>
+                  <button onClick={() => handleGenerate('cicd')} style={{ padding: '0.5rem 1rem', background: '#d97706', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer' }}>
+                    CI/CD
+                  </button>
+                  <button onClick={handleSecurityScan} style={{ padding: '0.5rem 1rem', background: '#dc2626', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.875rem', cursor: 'pointer' }}>
+                    Security Scan
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
           <h2 style={{ color: 'white', fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>Pipeline</h2>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
             {['Analysis', 'Docker', 'Terraform', 'CI/CD', 'Deploy'].map((step, i) => (
@@ -382,95 +302,56 @@ const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
             ))}
           </div>
         </div>
+
         {artifacts.length > 0 && (
-  <div
-    style={{
-      background: '#0f172a',
-      border: '1px solid #1e293b',
-      borderRadius: '12px',
-      padding: '1.5rem',
-      marginTop: '1.5rem',
-    }}
-  >
-    <h2
-      style={{
-        color: 'white',
-        fontSize: '1rem',
-        fontWeight: '600',
-        marginBottom: '1rem',
-      }}
-    >
-      Generated Files
-    </h2>
+          <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
+            <h2 style={{ color: 'white', fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>Generated Files</h2>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+              {artifacts.map(a => (
+                <button key={a.id} onClick={() => setSelectedArtifact(selectedArtifact === a.id ? null : a.id)} style={{ padding: '0.375rem 0.75rem', background: selectedArtifact === a.id ? '#1e3a5f' : '#1e293b', color: selectedArtifact === a.id ? '#60a5fa' : '#94a3b8', border: `1px solid ${selectedArtifact === a.id ? '#2563eb' : '#334155'}`, borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'monospace' }}>
+                  {a.filename}
+                </button>
+              ))}
+            </div>
+            {selectedArtifact && (() => {
+              const artifact = artifacts.find(a => a.id === selectedArtifact);
+              return artifact ? (
+                <pre style={{ background: '#020617', border: '1px solid #1e293b', borderRadius: '8px', padding: '1rem', color: '#e2e8f0', fontSize: '0.75rem', overflow: 'auto', maxHeight: '400px', margin: 0 }}>
+                  {artifact.content}
+                </pre>
+              ) : null;
+            })()}
+          </div>
+        )}
 
-    <div
-      style={{
-        display: 'flex',
-        gap: '0.5rem',
-        flexWrap: 'wrap',
-        marginBottom: '1rem',
-      }}
-    >
-      {artifacts.map((a) => (
-        <button
-          key={a.id}
-          onClick={() =>
-            setSelectedArtifact(
-              selectedArtifact === a.id ? null : a.id
-            )
-          }
-          style={{
-            padding: '0.375rem 0.75rem',
-            background:
-              selectedArtifact === a.id
-                ? '#1e3a5f'
-                : '#1e293b',
-            color:
-              selectedArtifact === a.id
-                ? '#60a5fa'
-                : '#94a3b8',
-            border: `1px solid ${
-              selectedArtifact === a.id
-                ? '#2563eb'
-                : '#334155'
-            }`,
-            borderRadius: '6px',
-            fontSize: '0.75rem',
-            cursor: 'pointer',
-            fontFamily: 'monospace',
-          }}
-        >
-          {a.filename}
-        </button>
-      ))}
-    </div>
-
-    {selectedArtifact &&
-      (() => {
-        const artifact = artifacts.find(
-          (a) => a.id === selectedArtifact
-        );
-
-        return artifact ? (
-          <pre
-            style={{
-              background: '#020617',
-              border: '1px solid #1e293b',
-              borderRadius: '8px',
-              padding: '1rem',
-              color: '#e2e8f0',
-              fontSize: '0.75rem',
-              overflow: 'auto',
-              maxHeight: '400px',
-              margin: 0,
-            }}
-          >
-            {artifact.content}
-          </pre>
-        ) : null;
-      })()}
-  </div>
-)}
+        {securityScan && (
+          <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 style={{ color: 'white', fontSize: '1rem', fontWeight: '600' }}>Security Scan</h2>
+              <span style={{ background: securityScan.score >= 80 ? '#14532d' : securityScan.score >= 60 ? '#713f12' : '#450a0a', color: securityScan.score >= 80 ? '#4ade80' : securityScan.score >= 60 ? '#fbbf24' : '#f87171', padding: '0.25rem 0.75rem', borderRadius: '9999px', fontSize: '0.875rem', fontWeight: '600' }}>
+                Score: {securityScan.score}/100
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+              {securityScan.criticalCount > 0 && <span style={{ color: '#f87171', fontSize: '0.875rem' }}>{securityScan.criticalCount} Critical</span>}
+              {securityScan.highCount > 0 && <span style={{ color: '#fb923c', fontSize: '0.875rem' }}>{securityScan.highCount} High</span>}
+              {securityScan.mediumCount > 0 && <span style={{ color: '#fbbf24', fontSize: '0.875rem' }}>{securityScan.mediumCount} Medium</span>}
+              {securityScan.lowCount > 0 && <span style={{ color: '#94a3b8', fontSize: '0.875rem' }}>{securityScan.lowCount} Low</span>}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {securityScan.findings.map((f, i) => (
+                <div key={i} style={{ background: '#020617', border: '1px solid #1e293b', borderRadius: '8px', padding: '0.75rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                    <span style={{ color: 'white', fontSize: '0.875rem', fontWeight: '500' }}>{f.title}</span>
+                    <span style={{ fontSize: '0.75rem', color: f.severity === 'CRITICAL' ? '#f87171' : f.severity === 'HIGH' ? '#fb923c' : f.severity === 'MEDIUM' ? '#fbbf24' : '#94a3b8' }}>{f.severity}</span>
+                  </div>
+                  <p style={{ color: '#64748b', fontSize: '0.8125rem', marginBottom: '0.25rem' }}>{f.description}</p>
+                  <p style={{ color: '#475569', fontSize: '0.75rem' }}>Fix: {f.recommendation}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
       </main>
 
