@@ -1,5 +1,13 @@
-import { Controller, Post, Get, Param } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { DatabaseService } from '../../database/database.service';
 import { CiCdService } from './cicd.service';
@@ -20,11 +28,22 @@ export class CiCdController {
     @CurrentUser() user: Record<string, unknown>,
   ) {
     const userId = user['id'] as string;
-    const analysis = await this.db.analysis.findUnique({ where: { projectId } });
-    if (!analysis) throw new Error('No analysis found');
 
-    const project = await this.db.project.findFirst({ where: { id: projectId, userId } });
-    if (!project) throw new Error('Project not found');
+    const analysis = await this.db.analysis.findUnique({
+      where: { projectId },
+    });
+
+    if (!analysis) {
+      throw new BadRequestException('No analysis found');
+    }
+
+    const project = await this.db.project.findFirst({
+      where: { id: projectId, userId },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
 
     const result = this.cicdService.generate({
       appName: project.repositoryName ?? 'app',
@@ -37,15 +56,43 @@ export class CiCdController {
     });
 
     await this.db.artifact.upsert({
-      where: { projectId_type_version: { projectId, type: 'GITHUB_ACTIONS_CI', version: 1 } },
-      create: { projectId, type: 'GITHUB_ACTIONS_CI', filename: '.github/workflows/build-test.yml', content: result.buildTest, version: 1 },
-      update: { content: result.buildTest },
+      where: {
+        projectId_type_version: {
+          projectId,
+          type: 'GITHUB_ACTIONS_CI',
+          version: 1,
+        },
+      },
+      create: {
+        projectId,
+        type: 'GITHUB_ACTIONS_CI',
+        filename: '.github/workflows/build-test.yml',
+        content: result.buildTest,
+        version: 1,
+      },
+      update: {
+        content: result.buildTest,
+      },
     });
 
     await this.db.artifact.upsert({
-      where: { projectId_type_version: { projectId, type: 'GITHUB_ACTIONS_CD', version: 1 } },
-      create: { projectId, type: 'GITHUB_ACTIONS_CD', filename: '.github/workflows/deploy-ecs.yml', content: result.deployEcs, version: 1 },
-      update: { content: result.deployEcs },
+      where: {
+        projectId_type_version: {
+          projectId,
+          type: 'GITHUB_ACTIONS_CD',
+          version: 1,
+        },
+      },
+      create: {
+        projectId,
+        type: 'GITHUB_ACTIONS_CD',
+        filename: '.github/workflows/deploy-ecs.yml',
+        content: result.deployEcs,
+        version: 1,
+      },
+      update: {
+        content: result.deployEcs,
+      },
     });
 
     return result;
@@ -55,7 +102,12 @@ export class CiCdController {
   @ApiOperation({ summary: 'Get CI/CD artifacts' })
   async getArtifacts(@Param('projectId') projectId: string) {
     return this.db.artifact.findMany({
-      where: { projectId, type: { in: ['GITHUB_ACTIONS_CI', 'GITHUB_ACTIONS_CD'] } },
+      where: {
+        projectId,
+        type: {
+          in: ['GITHUB_ACTIONS_CI', 'GITHUB_ACTIONS_CD'],
+        },
+      },
     });
   }
 }

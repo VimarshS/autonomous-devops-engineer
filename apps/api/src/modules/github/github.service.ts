@@ -80,7 +80,11 @@ export class GitHubService {
     }));
   }
 
-  async getRepository(userId: string, owner: string, repo: string) {
+  async getRepository(
+    userId: string,
+    owner: string,
+    repo: string,
+  ) {
     const token = await this.getGitHubToken(userId);
 
     const repoData = await this.githubRequest<GitHubRepo>(
@@ -112,7 +116,11 @@ export class GitHubService {
     const token = await this.getGitHubToken(userId);
 
     const tree = await this.githubRequest<{
-      tree: Array<{ path: string; type: string; size?: number }>;
+      tree: Array<{
+        path: string;
+        type: string;
+        size?: number;
+      }>;
     }>(
       token,
       `/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`,
@@ -155,7 +163,11 @@ export class GitHubService {
     const token = await this.getGitHubToken(userId);
 
     const tree = await this.githubRequest<{
-      tree: Array<{ path: string; type: string; size?: number }>;
+      tree: Array<{
+        path: string;
+        type: string;
+        size?: number;
+      }>;
     }>(
       token,
       `/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`,
@@ -211,32 +223,43 @@ export class GitHubService {
   }
 
   // GitHub webhook handler
- async handleWebhook(
-  event: string,
-  signature: string,
-  rawBody: Buffer | undefined,
-  body: Record<string, unknown>,
-) {
-  const secret = process.env['GITHUB_WEBHOOK_SECRET'];
-  
-  if (secret && rawBody && signature) {
-    const crypto = await import('crypto');
-    const hmac = crypto.createHmac('sha256', secret);
-    hmac.update(rawBody);
-    const expectedSignature = `sha256=${hmac.digest('hex')}`;
-    if (signature !== expectedSignature) {
-      throw new Error('Invalid webhook signature');
-    }
-  }
+  async handleWebhook(
+    event: string,
+    signature: string,
+    rawBody: Buffer | undefined,
+    body: Record<string, unknown>,
+  ) {
+    const secret = process.env['GITHUB_WEBHOOK_SECRET'];
 
-  if (event === 'push') {
-    const repoFullName = (body['repository'] as Record<string, unknown>)?.['full_name'] as string;
-    if (repoFullName) {
-      const [owner, repo] = repoFullName.split('/');
-      console.log(`[Webhook] Push event received for ${owner}/${repo}`);
-    }
-  }
+    if (secret && rawBody && signature) {
+      const crypto = await import('crypto');
+      const hmac = crypto.createHmac('sha256', secret);
 
-  return { received: true, event };
-}
+      hmac.update(rawBody);
+
+      const expectedSignature = `sha256=${hmac.digest('hex')}`;
+
+      if (signature !== expectedSignature) {
+        throw new UnauthorizedException(
+          'Invalid webhook signature',
+        );
+      }
+    }
+
+    if (event === 'push') {
+      const repoFullName = (
+        body['repository'] as Record<string, unknown>
+      )?.['full_name'] as string;
+
+      if (repoFullName) {
+        const [owner, repo] = repoFullName.split('/');
+
+        console.log(
+          `[Webhook] Push event received for ${owner}/${repo}`,
+        );
+      }
+    }
+
+    return { received: true, event };
+  }
 }

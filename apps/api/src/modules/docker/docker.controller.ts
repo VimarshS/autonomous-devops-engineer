@@ -1,4 +1,11 @@
-import { Controller, Post, Get, Param } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -28,7 +35,9 @@ export class DockerController {
     });
 
     if (!analysis) {
-      throw new Error('No analysis found. Run analysis first.');
+      throw new BadRequestException(
+        'No analysis found. Run analysis first.',
+      );
     }
 
     const project = await this.db.project.findFirst({
@@ -36,7 +45,7 @@ export class DockerController {
     });
 
     if (!project) {
-      throw new Error('Project not found');
+      throw new NotFoundException('Project not found');
     }
 
     // Generate Dockerfile
@@ -51,7 +60,13 @@ export class DockerController {
 
     // Store as artifacts
     await this.db.artifact.upsert({
-      where: { projectId_type_version: { projectId, type: 'DOCKERFILE', version: 1 } },
+      where: {
+        projectId_type_version: {
+          projectId,
+          type: 'DOCKERFILE',
+          version: 1,
+        },
+      },
       create: {
         projectId,
         type: 'DOCKERFILE',
@@ -65,7 +80,13 @@ export class DockerController {
     });
 
     await this.db.artifact.upsert({
-      where: { projectId_type_version: { projectId, type: 'DOCKER_COMPOSE', version: 1 } },
+      where: {
+        projectId_type_version: {
+          projectId,
+          type: 'DOCKER_COMPOSE',
+          version: 1,
+        },
+      },
       create: {
         projectId,
         type: 'DOCKER_COMPOSE',
@@ -95,7 +116,12 @@ export class DockerController {
   @ApiOperation({ summary: 'Get generated Docker artifacts' })
   async getArtifacts(@Param('projectId') projectId: string) {
     return this.db.artifact.findMany({
-      where: { projectId, type: { in: ['DOCKERFILE', 'DOCKER_COMPOSE'] } },
+      where: {
+        projectId,
+        type: {
+          in: ['DOCKERFILE', 'DOCKER_COMPOSE'],
+        },
+      },
       orderBy: { version: 'desc' },
     });
   }

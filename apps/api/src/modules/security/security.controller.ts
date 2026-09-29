@@ -1,5 +1,12 @@
-import { Controller, Post, Get, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { DatabaseService } from '../../database/database.service';
 import { SecurityService } from './security.service';
@@ -18,22 +25,35 @@ export class SecurityController {
   async scan(
     @Param('projectId') projectId: string,
     @CurrentUser() user: Record<string, unknown>,
-  ) : Promise<Record<string, unknown>> {
+  ): Promise<Record<string, unknown>> {
     const userId = user['id'] as string;
 
-    const project = await this.db.project.findFirst({ where: { id: projectId, userId } });
-    if (!project) throw new Error('Project not found');
+    const project = await this.db.project.findFirst({
+      where: { id: projectId, userId },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
 
     const artifacts = await this.db.artifact.findMany({
       where: { projectId },
       select: { type: true, filename: true, content: true },
     });
 
-    const analysis = await this.db.analysis.findUnique({ where: { projectId } });
-    const envVars = (analysis?.detectedEnvVars as Array<{ key: string }> ?? []);
+    const analysis = await this.db.analysis.findUnique({
+      where: { projectId },
+    });
+
+    const envVars =
+      (analysis?.detectedEnvVars as Array<{ key: string }> ?? []);
 
     const result = this.securityService.scan({
-      artifacts: artifacts.map(a => ({ type: a.type, filename: a.filename, content: a.content })),
+      artifacts: artifacts.map((a) => ({
+        type: a.type,
+        filename: a.filename,
+        content: a.content,
+      })),
       envVars,
     });
 
@@ -43,7 +63,8 @@ export class SecurityController {
         projectId,
         status: 'COMPLETED',
         score: result.score,
-        findings: result.findings as unknown as import('@prisma/client').Prisma.InputJsonValue,
+        findings:
+          result.findings as unknown as import('@prisma/client').Prisma.InputJsonValue,
         criticalCount: result.criticalCount,
         highCount: result.highCount,
         mediumCount: result.mediumCount,
@@ -53,7 +74,8 @@ export class SecurityController {
       update: {
         status: 'COMPLETED',
         score: result.score,
-        findings: result.findings as unknown as import('@prisma/client').Prisma.InputJsonValue,
+        findings:
+          result.findings as unknown as import('@prisma/client').Prisma.InputJsonValue,
         criticalCount: result.criticalCount,
         highCount: result.highCount,
         mediumCount: result.mediumCount,
@@ -68,6 +90,8 @@ export class SecurityController {
   @Get('projects/:projectId')
   @ApiOperation({ summary: 'Get security scan results' })
   async getScan(@Param('projectId') projectId: string) {
-    return this.db.securityScan.findUnique({ where: { projectId } });
+    return this.db.securityScan.findUnique({
+      where: { projectId },
+    });
   }
 }
