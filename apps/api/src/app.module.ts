@@ -17,6 +17,8 @@ import { TerraformModule } from './modules/terraform/terraform.module';
 import { CiCdModule } from './modules/cicd/cicd.module';
 import { ArtifactsModule } from './modules/artifacts/artifacts.module'
 import { SecurityModule } from './modules/security/security.module';
+import { AiModule } from './modules/ai/ai.module';
+
 
 @Module({
   imports: [
@@ -58,6 +60,7 @@ import { SecurityModule } from './modules/security/security.module';
     CiCdModule,
     ArtifactsModule,
     SecurityModule,
+    AiModule,
   ],
 
   providers: [

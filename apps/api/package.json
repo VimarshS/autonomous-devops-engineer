@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@ade/types": "*",
+    "@anthropic-ai/sdk": "^0.131.0",
+    "@google/generative-ai": "^0.24.1",
     "@nestjs/bullmq": "^11.0.5",
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^3.0.0",

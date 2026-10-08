@@ -85,6 +85,9 @@ export default function ProjectDetailPage({
   const [selectedArtifact, setSelectedArtifact] = useState<string | null>(
     null,
   );
+  const [aiQuestion, setAiQuestion] = useState('');
+  const [aiResponse, setAiResponse] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   // Analysis WebSocket progress
   const [analysisProgress, setAnalysisProgress] = useState<{
@@ -377,7 +380,25 @@ export default function ProjectDetailPage({
 
     await fetchSecurityScan();
   }
-
+async function handleAskAi() {
+  if (!aiQuestion.trim()) return;
+  setAiLoading(true);
+  setAiResponse(null);
+  try {
+    const res = await fetch(`/api/ai/${params.id}/ask`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: aiQuestion }),
+    });
+    const data = await res.json() as { response: string };
+    setAiResponse(data.response);
+  } catch {
+    setAiResponse('Failed to get AI response');
+  } finally {
+    setAiLoading(false);
+  }
+}
   if (loading || projectLoading) {
     return (
       <div
@@ -1269,6 +1290,42 @@ export default function ProjectDetailPage({
             </div>
           </div>
         )}
+        {analysis && (
+  <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
+    <h2 style={{ color: 'white', fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>Ask AI</h2>
+    <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
+      <input
+        type="text"
+        value={aiQuestion}
+        onChange={e => setAiQuestion(e.target.value)}
+        onKeyDown={e => e.key === 'Enter' && handleAskAi()}
+        placeholder="Ask about your project, deployment issues, security fixes..."
+        style={{ flex: 1, padding: '0.625rem 0.75rem', background: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: 'white', fontSize: '0.875rem' }}
+      />
+      <button
+        onClick={handleAskAi}
+        disabled={aiLoading || !aiQuestion.trim()}
+        style={{ padding: '0.625rem 1rem', background: aiLoading ? '#334155' : '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.875rem', cursor: aiLoading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+      >
+        {aiLoading ? 'Thinking...' : 'Ask Claude'}
+      </button>
+    </div>
+    {aiResponse && (
+      <div style={{ background: '#020617', border: '1px solid #1e293b', borderRadius: '8px', padding: '1rem' }}>
+        <pre style={{ color: '#e2e8f0', fontSize: '0.8125rem', whiteSpace: 'pre-wrap', margin: 0, fontFamily: 'inherit', lineHeight: '1.6' }}>
+          {aiResponse}
+        </pre>
+      </div>
+    )}
+    <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+      {['How do I fix the security findings?', 'Explain the generated Dockerfile', 'What AWS resources will be created?', 'How do I deploy this to production?'].map(q => (
+        <button key={q} onClick={() => setAiQuestion(q)} style={{ padding: '0.25rem 0.625rem', background: '#1e293b', color: '#64748b', border: '1px solid #334155', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer' }}>
+          {q}
+        </button>
+      ))}
+    </div>
+  </div>
+)}
       </main>
 
       {showRepoPicker && (
