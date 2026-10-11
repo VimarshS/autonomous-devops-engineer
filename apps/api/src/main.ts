@@ -32,12 +32,15 @@ async function bootstrap() {
 });
 
   app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+    transformOptions: {
+      enableImplicitConversion: true,
+    },
+  }),
+);
 
   if (nodeEnv !== 'production') {
     const swaggerConfig = new DocumentBuilder()
@@ -51,9 +54,19 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, document);
   }
 
-  app.enableShutdownHooks();
+ app.enableShutdownHooks();
 
-  await app.listen(port);
+process.on('SIGTERM', async () => {
+  await app.close();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  await app.close();
+  process.exit(0);
+});
+
+await app.listen(port);
   console.log(`🚀 API running on http://localhost:${port}/api/v1`);
   console.log(`📚 Swagger docs at http://localhost:${port}/api/docs`);
 }

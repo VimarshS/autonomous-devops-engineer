@@ -1,4 +1,4 @@
-import { Module, NestModule } from '@nestjs/common';
+// import { Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -18,7 +18,8 @@ import { CiCdModule } from './modules/cicd/cicd.module';
 import { ArtifactsModule } from './modules/artifacts/artifacts.module'
 import { SecurityModule } from './modules/security/security.module';
 import { AiModule } from './modules/ai/ai.module';
-
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { LoggingMiddleware } from './common/middleware/logging.middleware';
 
 @Module({
   imports: [
@@ -75,7 +76,7 @@ import { AiModule } from './modules/ai/ai.module';
   ],
 })
 export class AppModule implements NestModule {
-  configure() {
-    // Auth routes are handled by AuthController
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(LoggingMiddleware).forRoutes('*');
   }
 }
