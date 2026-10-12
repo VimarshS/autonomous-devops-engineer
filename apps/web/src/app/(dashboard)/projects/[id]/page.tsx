@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../../contexts/auth-context';
 import { Sidebar } from '../../../../components/layout/sidebar';
 import { RepoPickerModal } from '../../../../components/projects/repo-picker-modal';
+import { toast } from 'sonner';
 
 interface Project {
   id: string;
@@ -189,6 +190,7 @@ export default function ProjectDetailPage({
 
   async function handleTriggerAnalysis() {
     if (!project?.repositoryUrl) {
+      toast.error('Connect a repository first');
       return;
     }
 
@@ -198,6 +200,7 @@ export default function ProjectDetailPage({
       progress: 0,
       message: 'Starting...',
     });
+    toast.info('Analysis started');
 
     try {
       const res = await fetch('/api/analysis/trigger', {
@@ -344,42 +347,43 @@ export default function ProjectDetailPage({
   }
 
   async function handleDelete() {
-    if (!confirm('Delete this project?')) {
-      return;
-    }
-
-    await fetch(`/api/projects/${params.id}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-
+  if (!confirm('Delete this project?')) return;
+  try {
+    await fetch(`/api/projects/${params.id}`, { method: 'DELETE', credentials: 'include' });
+    toast.success('Project deleted');
     router.push('/dashboard');
+  } catch {
+    toast.error('Failed to delete project');
   }
+}
 
   async function handleGenerate(type: string) {
-    const endpoints: Record<string, string> = {
-      docker: `/api/docker/${params.id}/generate`,
-      terraform: `/api/terraform/${params.id}/generate`,
-      cicd: `/api/cicd/${params.id}/generate`,
-    };
-
-    await fetch(endpoints[type] ?? '', {
-      method: 'POST',
-      credentials: 'include',
-    });
-
+  const endpoints: Record<string, string> = {
+    docker: `/api/docker/${params.id}/generate`,
+    terraform: `/api/terraform/${params.id}/generate`,
+    cicd: `/api/cicd/${params.id}/generate`,
+  };
+  try {
+    toast.loading(`Generating ${type}...`, { id: `generate-${type}` });
+    await fetch(endpoints[type] ?? '', { method: 'POST', credentials: 'include' });
     await fetchArtifacts();
     await fetchProject();
+    toast.success(`${type} generated successfully`, { id: `generate-${type}` });
+  } catch {
+    toast.error(`Failed to generate ${type}`, { id: `generate-${type}` });
   }
+}
 
   async function handleSecurityScan() {
-    await fetch(`/api/security/${params.id}/scan`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-
+  try {
+    toast.loading('Running security scan...', { id: 'security-scan' });
+    await fetch(`/api/security/${params.id}/scan`, { method: 'POST', credentials: 'include' });
     await fetchSecurityScan();
+    toast.success('Security scan complete', { id: 'security-scan' });
+  } catch {
+    toast.error('Security scan failed', { id: 'security-scan' });
   }
+}
 async function handleAskAi() {
   if (!aiQuestion.trim()) return;
   setAiLoading(true);
@@ -395,26 +399,31 @@ async function handleAskAi() {
     setAiResponse(data.response);
   } catch {
     setAiResponse('Failed to get AI response');
+    toast.error('AI request failed');
   } finally {
     setAiLoading(false);
   }
 }
   if (loading || projectLoading) {
-    return (
-      <div
-        style={{
-          minHeight: '100vh',
-          background: '#020617',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'white',
-        }}
-      >
-        Loading...
-      </div>
-    );
-  }
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#020617' }}>
+      <Sidebar />
+      <main style={{ flex: 1, padding: '2rem' }}>
+        <div style={{ marginBottom: '2rem' }}>
+          <div style={{ width: '120px', height: '16px', background: '#1e293b', borderRadius: '4px', marginBottom: '1rem', animation: 'pulse 1.5s infinite' }} />
+          <div style={{ width: '300px', height: '32px', background: '#1e293b', borderRadius: '8px', marginBottom: '0.5rem', animation: 'pulse 1.5s infinite' }} />
+          <div style={{ width: '200px', height: '16px', background: '#1e293b', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+          {[1,2,3].map(i => (
+            <div key={i} style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '12px', padding: '1.25rem', height: '80px', animation: 'pulse 1.5s infinite' }} />
+          ))}
+        </div>
+        <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }`}</style>
+      </main>
+    </div>
+  );
+}
 
   if (!project) {
     return null;
@@ -1083,30 +1092,25 @@ async function handleAskAi() {
               ))}
             </div>
 
-            {selectedArtifact &&
-              (() => {
-                const artifact = artifacts.find(
-                  (a) => a.id === selectedArtifact,
-                );
-
-                return artifact ? (
-                  <pre
-                    style={{
-                      background: '#020617',
-                      border: '1px solid #1e293b',
-                      borderRadius: '8px',
-                      padding: '1rem',
-                      color: '#e2e8f0',
-                      fontSize: '0.75rem',
-                      overflow: 'auto',
-                      maxHeight: '400px',
-                      margin: 0,
-                    }}
-                  >
-                    {artifact.content}
-                  </pre>
-                ) : null;
-              })()}
+            {selectedArtifact && (() => {
+  const artifact = artifacts.find(a => a.id === selectedArtifact);
+  return artifact ? (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => {
+          navigator.clipboard.writeText(artifact.content);
+          toast.success('Copied to clipboard');
+        }}
+        style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', background: '#1e293b', color: '#94a3b8', border: '1px solid #334155', borderRadius: '6px', padding: '0.25rem 0.5rem', fontSize: '0.75rem', cursor: 'pointer', zIndex: 1 }}
+      >
+        Copy
+      </button>
+      <pre style={{ background: '#020617', border: '1px solid #1e293b', borderRadius: '8px', padding: '1rem', color: '#e2e8f0', fontSize: '0.75rem', overflow: 'auto', maxHeight: '400px', margin: 0 }}>
+        {artifact.content}
+      </pre>
+    </div>
+  ) : null;
+})()}
           </div>
         )}
 

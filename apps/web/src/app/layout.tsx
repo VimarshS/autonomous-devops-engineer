@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 import { Providers } from '../components/providers';
 import './globals.css';
+import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
   title: 'Autonomous DevOps Engineer',
@@ -19,6 +20,7 @@ export default function RootLayout({
         <Providers>
           {children}
         </Providers>
+        <Toaster position="bottom-right" theme="dark" richColors />
       </body>
     </html>
   );

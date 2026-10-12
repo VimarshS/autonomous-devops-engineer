@@ -9,16 +9,17 @@ interface Project {
   createdAt: string;
 }
 
-const statusColors: Record<string, string> = {
-  DRAFT: '#475569',
-  ANALYZING: '#2563eb',
-  ANALYZED: '#7c3aed',
-  GENERATING: '#d97706',
-  GENERATED: '#059669',
-  DEPLOYING: '#2563eb',
-  LIVE: '#16a34a',
-  FAILED: '#dc2626',
-  PAUSED: '#475569',
+const statusConfig: Record<
+  string,
+  { bg: string; color: string; label: string }
+> = {
+  DRAFT: { bg: '#1e293b', color: '#64748b', label: 'Draft' },
+  ANALYZING: { bg: '#1e3a5f', color: '#60a5fa', label: 'Analyzing' },
+  ANALYZED: { bg: '#2e1065', color: '#a78bfa', label: 'Analyzed' },
+  GENERATING: { bg: '#1c1917', color: '#f59e0b', label: 'Generating' },
+  GENERATED: { bg: '#052e16', color: '#4ade80', label: 'Generated' },
+  FAILED: { bg: '#450a0a', color: '#f87171', label: 'Failed' },
+  LIVE: { bg: '#052e16', color: '#4ade80', label: 'Live' },
 };
 
 export function ProjectCard({ project }: { project: Project }) {
@@ -33,8 +34,8 @@ export function ProjectCard({ project }: { project: Project }) {
           <h3 style={{ color: 'white', fontSize: '0.9375rem', fontWeight: '600' }}>
             {project.name}
           </h3>
-          <span style={{ background: statusColors[project.status] ?? '#475569', color: 'white', fontSize: '0.6875rem', padding: '0.2rem 0.5rem', borderRadius: '9999px', fontWeight: '500' }}>
-            {project.status}
+          <span style={{ background: statusConfig[project.status]?.bg ?? '#475569', color: statusConfig[project.status]?.color ?? 'white', fontSize: '0.6875rem', padding: '0.2rem 0.5rem', borderRadius: '9999px', fontWeight: '500' }}>
+            {statusConfig[project.status]?.label ?? project.status}
           </span>
         </div>
         {project.description && (
