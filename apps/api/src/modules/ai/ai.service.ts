@@ -33,20 +33,30 @@ export class AiService {
   }
 
   async troubleshoot(ctx: TroubleshootContext): Promise<string> {
-    this.logger.log(`AI troubleshoot request for ${ctx.projectName}`);
+  this.logger.log(`AI troubleshoot request for ${ctx.projectName}`);
 
-    const model = this.genAI.getGenerativeModel({
-      model: 'gemini-3.8-flash',
-      systemInstruction: `You are an expert DevOps engineer and cloud architect helping developers deploy their applications. 
-You have deep knowledge of Docker, Terraform, AWS ECS, GitHub Actions, and common deployment issues.
-Be concise, practical, and give specific actionable advice.
-Format your response with clear sections using markdown.`,
-    });
+  const model = this.genAI.getGenerativeModel({
+    model: 'gemini-3.1-flash-lite',
+    systemInstruction: `You are an expert DevOps engineer helping developers deploy applications. Be concise and practical. Use markdown formatting.`,
+    generationConfig: {
+      maxOutputTokens: 512,
+      temperature: 0.7,
+    },
+  });
 
-    const prompt = this.buildPrompt(ctx);
-    const result = await model.generateContent(prompt);
-    return result.response.text();
-  }
+  const prompt = this.buildPrompt(ctx);
+
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('AI request timed out')), 15000),
+  );
+
+  const result = await Promise.race([
+    model.generateContent(prompt),
+    timeoutPromise,
+  ]);
+
+  return (result as Awaited<ReturnType<typeof model.generateContent>>).response.text();
+}
 
   private buildPrompt(ctx: TroubleshootContext): string {
     const parts: string[] = [];
@@ -70,11 +80,11 @@ Format your response with clear sections using markdown.`,
     }
 
     if (ctx.artifacts && ctx.artifacts.length > 0) {
-      parts.push(`\n## Generated Files`);
-      for (const a of ctx.artifacts.slice(0, 3)) {
-        parts.push(`\n### ${a.filename}\n\`\`\`\n${a.content.slice(0, 500)}\n\`\`\``);
-      }
-    }
+  parts.push(`\n## Generated Files`);
+  for (const a of ctx.artifacts.slice(0, 2)) {
+    parts.push(`\n### ${a.filename}\n\`\`\`\n${a.content.slice(0, 300)}\n\`\`\``);
+  }
+}
 
     parts.push(`\n## Question\n${ctx.question}`);
 
