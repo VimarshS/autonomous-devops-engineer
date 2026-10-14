@@ -2,8 +2,23 @@ import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { PrismaClient } from '@prisma/client';
 
 import { AppModule } from './app.module';
+
+async function runMigrations() {
+  if (process.env['NODE_ENV'] === 'production') {
+    const { execSync } = await import('child_process');
+    try {
+      execSync('npx prisma migrate deploy', {
+        cwd: process.cwd(),
+        stdio: 'inherit',
+      });
+    } catch (e) {
+      console.error('Migration failed:', e);
+    }
+  }
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
@@ -24,11 +39,14 @@ async function bootstrap() {
     defaultVersion: '1',
   });
 
-  app.enableCors({
-  origin: ['http://localhost:3000', 'http://localhost:3002'],
+ app.enableCors({
+  origin: [
+    process.env['FRONTEND_URL'] ?? 'http://localhost:3000',
+    'http://localhost:3000',
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'x-better-auth-token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
 });
 
   app.useGlobalPipes(
