@@ -1,4 +1,5 @@
-// import { Module, NestModule } from '@nestjs/common';
+
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -15,10 +16,9 @@ import { AnalysisModule } from './modules/analysis/analysis.module';
 import { DockerModule } from './modules/docker/docker.module';
 import { TerraformModule } from './modules/terraform/terraform.module';
 import { CiCdModule } from './modules/cicd/cicd.module';
-import { ArtifactsModule } from './modules/artifacts/artifacts.module'
+import { ArtifactsModule } from './modules/artifacts/artifacts.module';
 import { SecurityModule } from './modules/security/security.module';
 import { AiModule } from './modules/ai/ai.module';
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { LoggingMiddleware } from './common/middleware/logging.middleware';
 
 @Module({
@@ -27,12 +27,20 @@ import { LoggingMiddleware } from './common/middleware/logging.middleware';
 
     // BullMQ / Redis
     BullModule.forRootAsync({
-      useFactory: (config: ConfigService) => ({
-        connection: {
-          host: config.get<string>('REDIS_HOST', 'localhost'),
-          port: config.get<number>('REDIS_PORT', 6379),
-        },
-      }),
+      useFactory: (config: ConfigService) => {
+        const host = config.get<string>('REDIS_HOST', 'localhost');
+        const port = config.get<number>('REDIS_PORT', 6379);
+        const password = config.get<string>('REDIS_PASSWORD');
+
+        return {
+          connection: {
+            host,
+            port,
+            ...(password ? { password } : {}),
+            tls: host.endsWith('.upstash.io') ? {} : undefined,
+          },
+        };
+      },
       inject: [ConfigService],
     }),
 
